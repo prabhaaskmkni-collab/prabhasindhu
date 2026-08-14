@@ -1126,13 +1126,7 @@ app.post('/api/send', async (req, res) => {
                 subject: cleanSub,
                 html: html,
                 text: message_plain || stripHtml(html),
-                attachments: mailerAttachments,
-                headers: {
-                  'X-Mailer': 'MailForge-Pro/2.0',
-                  'X-Report-Abuse': `mailto:abuse@${senderDomain}`,
-                  'List-Unsubscribe': `<mailto:unsubscribe@${senderDomain}?subject=unsubscribe>`,
-                  'Precedence': 'bulk'
-                }
+                attachments: mailerAttachments
               });
               success = true;
               break;

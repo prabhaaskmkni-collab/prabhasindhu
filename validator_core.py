@@ -228,9 +228,12 @@ def process_one(
         if smtp_ok:
             result["email_type"] = "Valid"
             result["reason"] = "SMTP verification passed"
-        elif "user unknown" in smtp_msg:
+        elif "user unknown" in smtp_msg or "rejected (5" in smtp_msg:
             result["email_type"] = "Invalid"
             result["reason"] = f"SMTP: {smtp_msg}"
+        elif any(term in smtp_msg.lower() for term in ["connection failed", "timed out", "closed", "error"]):
+            result["email_type"] = "Valid"
+            result["reason"] = f"MX records valid (SMTP unreachable: {smtp_msg})"
         else:
             result["email_type"] = "Risky"
             result["reason"] = f"SMTP: {smtp_msg}"

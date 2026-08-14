@@ -3700,7 +3700,7 @@
                 // Dry run: quick synchronous response
                 showOverlay('Dry Run...', `${recipients.length} recipients`);
                 try {
-                    const r = await axios.post(`${API_BASE}/api/send`, payload, { timeout: 10000 });
+                    const r = await axios.post(`${API_BASE}/api/send`, payload, { timeout: 0 });
                     if (r.data.success) {
                         const s = r.data.summary;
                         alert(`✅ Dry Run Complete!\n\nWould send to ${s.total} recipients.\nNo emails actually sent.`);
@@ -3733,7 +3733,7 @@
             const jobStartMs = Date.now();
 
             try {
-                const r = await axios.post(`${API_BASE}/api/send`, payload, { timeout: 15000 });
+                const r = await axios.post(`${API_BASE}/api/send`, payload, { timeout: 0 });
 
                 if (!r.data.jobId) {
                     // Legacy synchronous response (dry-run or unexpected)

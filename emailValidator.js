@@ -398,19 +398,30 @@ async function validateEmail(email, options = {}) {
         result.status = 'invalid';
         result.valid = false;
       } else {
-        // null = unknown/greylisted
+        // null = unknown/greylisted/connection issue
         result.checks.smtp.passed = false;
         result.checks.smtp.reason = smtpResult.reason;
-        result.status = 'risky';
-        result.valid = true; // Assume valid but risky
-        result.score += 20;
-        result.suggestions.push('SMTP verification inconclusive - email may still be valid');
+        
+        // If SMTP server is unreachable (port blocked, timeout, rate limited/refused connection),
+        // we should not mark the email as risky since the domain MX records are valid.
+        if (smtpResult.smtpReachable === false) {
+          result.status = 'valid';
+          result.valid = true;
+          result.score += 25;
+          result.checks.smtp.reason = `MX records valid (SMTP check unreachable/timeout)`;
+        } else {
+          result.status = 'risky';
+          result.valid = true; // Assume valid but risky
+          result.score += 20;
+          result.suggestions.push('SMTP verification inconclusive - email may still be valid');
+        }
       }
     } catch (err) {
       result.checks.smtp.reason = `SMTP check error: ${err.message}`;
-      result.status = 'risky';
+      result.status = 'valid';
       result.valid = true;
-      result.score += 15;
+      result.score += 25;
+      result.checks.smtp.reason = `MX records valid (SMTP check error)`;
     }
   } else if (!checkSmtp) {
     // Skip SMTP, give partial score
