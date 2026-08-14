@@ -283,6 +283,7 @@ async function sendEmail(transporter, mailOptions, fromConfig = {}) {
 }
 
 async function sendBulkEmails(emailList, template, smtpConfig = {}, onProgress = null) {
+  const startTs = Date.now();
   const batchDelay  = parseInt(process.env.BATCH_DELAY_MS)    || 0;
 
   // Determine which provider to use
