@@ -1,0 +1,6 @@
+{
+    "allow_public_signup": true,
+    "google_oauth_enabled": true,
+    "google_client_id": "",
+    "google_client_secret": ""
+}

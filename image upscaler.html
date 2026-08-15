@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>pixelwright — image upscaler v2</title>
+<style>
+  :root{
+    --bg:#0d0f0d;
+    --panel:#12150f;
+    --line:#262b22;
+    --text:#e8ecdf;
+    --dim:#8a9280;
+    --phosphor:#6fdc8c;
+    --amber:#e8a54b;
+    --red:#f87171;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'IBM Plex Mono','Courier New',monospace;
+    min-height:100vh;
+  }
+  .scan{
+    pointer-events:none;
+    position:fixed; inset:0;
+    background:repeating-linear-gradient(
+      to bottom, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px,
+      transparent 1px, transparent 3px);
+    mix-blend-mode:overlay;
+    z-index:50;
+  }
+  header{
+    padding:28px 32px 18px;
+    border-bottom:1px solid var(--line);
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+  }
+  header .tag{color:var(--phosphor);font-size:12px;letter-spacing:0.15em;}
+  header h1{margin:4px 0;font-size:26px;font-weight:600;letter-spacing:-0.02em;}
+  header p{margin:0;color:var(--dim);font-size:12px;max-width:680px;line-height:1.6;}
+  .layout{
+    display:grid;
+    grid-template-columns:248px 1fr;
+    min-height:calc(100vh - 110px);
+  }
+  @media(max-width:820px){.layout{grid-template-columns:1fr;}}
+  .panel{
+    padding:20px;
+    border-right:1px solid var(--line);
+    display:flex;
+    flex-direction:column;
+    gap:0;
+  }
+  .section-label{
+    font-size:10px;
+    letter-spacing:0.12em;
+    color:var(--dim);
+    text-transform:uppercase;
+    margin:14px 0 8px;
+    border-bottom:1px solid var(--line);
+    padding-bottom:5px;
+  }
+  .field{margin-bottom:14px;}
+  .field label{
+    display:flex;
+    justify-content:space-between;
+    font-size:11px;
+    color:var(--dim);
+    margin-bottom:7px;
+  }
+  .field label span.val{color:var(--phosphor);}
+  input[type=range]{
+    -webkit-appearance:none;
+    width:100%;
+    height:2px;
+    background:var(--line);
+    outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:11px;height:11px;
+    background:var(--phosphor);
+    cursor:pointer;
+    border-radius:2px;
+  }
+  input[type=range]:disabled::-webkit-slider-thumb{background:var(--dim);}
+  .toggle-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:12px;
+    color:var(--text);
+    cursor:pointer;
+    user-select:none;
+    margin-bottom:8px;
+  }
+  .toggle-row input{accent-color:var(--phosphor);}
+  .toggle-row.sub{
+    margin-left:12px;
+    font-size:11px;
+    color:var(--dim);
+    margin-bottom:6px;
+  }
+  .dropzone{
+    border:1px dashed var(--line);
+    padding:20px 10px;
+    text-align:center;
+    font-size:11px;
+    color:var(--dim);
+    cursor:pointer;
+    margin-bottom:14px;
+    transition:border-color .15s;
+    line-height:1.6;
+  }
+  .dropzone:hover,.dropzone.drag{border-color:var(--phosphor);color:var(--phosphor);}
+  input[type=file]{display:none;}
+  button.run{
+    width:100%;
+    padding:11px;
+    background:var(--phosphor);
+    color:#0d0f0d;
+    border:none;
+    font-family:inherit;
+    font-weight:700;
+    font-size:12px;
+    letter-spacing:0.05em;
+    cursor:pointer;
+    margin-top:6px;
+    transition:opacity .15s;
+  }
+  button.run:disabled{background:var(--line);color:var(--dim);cursor:not-allowed;}
+  button.run.running{background:var(--amber);}
+  button.dl{
+    width:100%;
+    padding:9px;
+    background:transparent;
+    border:1px solid var(--line);
+    color:var(--text);
+    font-family:inherit;
+    font-size:11px;
+    cursor:pointer;
+    margin-top:8px;
+  }
+  button.dl:hover{border-color:var(--phosphor);color:var(--phosphor);}
+  .log{
+    margin-top:14px;
+    background:#0a0c0a;
+    border:1px solid var(--line);
+    padding:8px 10px;
+    font-size:10px;
+    line-height:1.75;
+    color:var(--dim);
+    height:130px;
+    overflow-y:auto;
+    flex-shrink:0;
+  }
+  .log .l-ok{color:var(--phosphor);}
+  .log .l-tag{color:var(--amber);}
+  .log .l-err{color:var(--red);}
+  .progress-bar{
+    height:2px;
+    background:var(--line);
+    margin-top:8px;
+    overflow:hidden;
+    display:none;
+  }
+  .progress-bar .fill{
+    height:100%;
+    background:var(--phosphor);
+    width:0%;
+    transition:width .1s linear;
+  }
+  .progress-bar.active{display:block;}
+  .stage{
+    padding:24px;
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+  }
+  .compare{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:300px;
+    background:
+      linear-gradient(45deg,#1a1d17 25%,transparent 25%),
+      linear-gradient(-45deg,#1a1d17 25%,transparent 25%),
+      linear-gradient(45deg,transparent 75%,#1a1d17 75%),
+      linear-gradient(-45deg,transparent 75%,#1a1d17 75%);
+    background-size:16px 16px;
+    background-position:0 0,0 8px,8px -8px,-8px 0px;
+    border:1px solid var(--line);
+  }
+  .placeholder{color:var(--dim);font-size:13px;}
+  .ba-slider{
+    position:relative;
+    width:100%;
+    max-width:900px;
+    user-select:none;
+    line-height:0;
+  }
+  .ba-slider img{display:block;width:100%;height:auto;cursor:zoom-in;}
+  .ba-after-wrap{
+    position:absolute;
+    top:0;left:0;
+    height:100%;
+    width:50%;
+    overflow:hidden;
+  }
+  .ba-after-wrap img{
+    position:absolute;
+    top:0;left:0;
+    height:100%;
+    width:auto;
+    max-width:none;
+  }
+  .ba-tag{
+    position:absolute;
+    top:10px;
+    font-size:9px;
+    letter-spacing:0.1em;
+    padding:4px 8px;
+    background:rgba(5,6,4,0.78);
+    color:var(--text);
+    pointer-events:none;
+  }
+  .ba-tag.before{left:10px;}
+  .ba-tag.after{right:10px;color:var(--phosphor);}
+  .ba-line{
+    position:absolute;
+    top:0;bottom:0;left:50%;
+    width:2px;
+    background:#fff;
+    transform:translateX(-50%);
+    pointer-events:none;
+  }
+  .ba-handle{
+    position:absolute;
+    top:50%;left:50%;
+    width:36px;height:36px;
+    background:#fff;
+    border-radius:50%;
+    transform:translate(-50%,-50%);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:ew-resize;
+    box-shadow:0 2px 10px rgba(0,0,0,0.5);
+  }
+  .ba-handle svg{width:16px;height:16px;}
+  .modal-overlay{
+    position:fixed;inset:0;
+    background:rgba(5,6,4,0.93);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:100;
+    padding:40px;
+  }
+  .modal-overlay.open{display:flex;}
+  .modal-overlay img{max-width:100%;max-height:100%;box-shadow:0 0 0 1px var(--line);cursor:zoom-out;}
+  .modal-close{
+    position:fixed;top:20px;right:28px;
+    color:var(--text);font-size:12px;letter-spacing:0.08em;
+    background:var(--panel);border:1px solid var(--line);
+    padding:7px 12px;cursor:pointer;font-family:inherit;z-index:101;
+  }
+  .modal-close:hover{border-color:var(--phosphor);color:var(--phosphor);}
+  .modal-label{position:fixed;top:24px;left:28px;color:var(--dim);font-size:11px;letter-spacing:0.1em;z-index:101;}
+  .meta{font-size:10px;color:var(--dim);display:flex;gap:18px;flex-wrap:wrap;}
+  .meta b{color:var(--text);font-weight:600;}
+  .warn-banner{
+    display:none;
+    background:#2a1a00;
+    border:1px solid var(--amber);
+    color:var(--amber);
+    font-size:11px;
+    padding:8px 12px;
+    margin-bottom:10px;
+    line-height:1.5;
+  }
+  .warn-banner.show{display:block;}
+  input[type=text]{
+    width:100%;
+    background:#0a0c0a;
+    border:1px solid var(--line);
+    color:var(--text);
+    padding:7px 8px;
+    font-family:inherit;
+    font-size:11px;
+    outline:none;
+  }
+  input[type=text]:focus{border-color:var(--phosphor);}
+  input[type=text]::placeholder{color:#4a5044;}
+  .hint{font-size:10px;color:var(--dim);line-height:1.5;margin:-4px 0 10px;}
+  .hint a{color:var(--phosphor);}
+</style>
+</head>
+<body>
+<div class="scan"></div>
+
+<header>
+  <div class="tag">// PIXELWRIGHT v2</div>
+  <h1>image upscaler &amp; enhancer</h1>
+  <p>100% browser-side. Bicubic upscaling, multi-scale unsharp masking, clarity, vibrance, and histogram contrast — all on a background thread so the page never freezes.</p>
+</header>
+
+<div class="layout">
+  <div class="panel">
+    <div class="warn-banner" id="warnBanner"></div>
+
+    <div class="section-label">input</div>
+    <div class="dropzone" id="dropzone">
+      drop an image here<br>or click to browse
+      <input type="file" id="fileInput" accept="image/*">
+    </div>
+
+    <div class="section-label">cloud AI upscale</div>
+    <label class="toggle-row"><input type="checkbox" id="cloudOn"> use Cloudinary instead of local</label>
+    <div class="field">
+      <label>cloud name</label>
+      <input type="text" id="cloudName" placeholder="e.g. dxy1abcde" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>unsigned upload preset</label>
+      <input type="text" id="uploadPreset" placeholder="e.g. pixelwright_unsigned" autocomplete="off">
+    </div>
+    <div class="hint">No API secret needed/used here — browser code can't keep a secret safe. Create an <b>unsigned upload preset</b> in Cloudinary console → Settings → Upload, then paste your cloud name + preset name above.</div>
+
+    <div class="section-label">upscale (local)</div>
+    <label class="toggle-row"><input type="checkbox" id="logoMode" checked> flat-color / logo art</label>
+    <div class="hint" id="logoModeHint">For logos, icons, line art, or anything with flat colors and hard edges. Uses crisp nearest-neighbor upscaling and skips the halo-prone clarity filter that blurs this kind of image — the clarity and fine radius controls below are disabled while this is on since they have no effect in this mode.</div>
+    <div class="field">
+      <label>scale factor <span class="val" id="scaleVal">2.0×</span></label>
+      <input type="range" id="scale" min="1" max="4" step="0.25" value="2">
+    </div>
+
+    <div class="section-label">sharpen</div>
+    <label class="toggle-row"><input type="checkbox" id="sharpenOn" checked> unsharp mask</label>
+    <div class="field">
+      <label>amount <span class="val" id="sharpenVal">1.5</span></label>
+      <input type="range" id="sharpen" min="0" max="4" step="0.1" value="1.5">
+    </div>
+    <div class="field">
+      <label>fine radius <span class="val" id="fineRadiusVal">auto</span></label>
+      <input type="range" id="fineRadius" min="0" max="5" step="1" value="0" title="0 = auto">
+    </div>
+    <label class="toggle-row sub"><input type="checkbox" id="clarityOn" checked> clarity (mid-tone contrast)</label>
+    <div class="field">
+      <label>clarity amount <span class="val" id="clarityAmtVal">0.4</span></label>
+      <input type="range" id="clarityAmt" min="0" max="2" step="0.05" value="0.4">
+    </div>
+
+    <div class="section-label">colour</div>
+    <label class="toggle-row"><input type="checkbox" id="vibranceOn"> vibrance / saturation</label>
+    <div class="field">
+      <label>vibrance <span class="val" id="vibranceVal">0.3</span></label>
+      <input type="range" id="vibrance" min="0" max="1" step="0.05" value="0.3">
+    </div>
+
+    <div class="section-label">contrast</div>
+    <label class="toggle-row"><input type="checkbox" id="contrastOn"> histogram stretch</label>
+    <div class="field">
+      <label>clip % <span class="val" id="clipVal">1.0</span></label>
+      <input type="range" id="clip" min="0.1" max="5" step="0.1" value="1.0">
+    </div>
+
+    <button class="run" id="runBtn" disabled>process image</button>
+    <button class="dl" id="dlBtn" style="display:none;">↓ download result</button>
+
+    <div class="progress-bar" id="progressBar"><div class="fill" id="progressFill"></div></div>
+    <div class="log" id="log"><span>awaiting input…</span></div>
+  </div>
+
+  <div class="stage">
+    <div class="compare" id="compare">
+      <div class="placeholder">no image loaded yet</div>
+    </div>
+    <div class="meta" id="meta"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-label" id="modalLabel"></div>
+  <button class="modal-close" id="modalClose">✕ close</button>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const logEl = $('log');
+function log(msg, cls){
+  const line = document.createElement('div');
+  if(cls) line.className = cls;
+  line.textContent = '> ' + msg;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+function clearLog(){ logEl.innerHTML = ''; }
+
+let sourceImg = null;
+let sourceCanvas = document.createElement('canvas');
+let currentWorker = null;
+
+// ---------- warn banner ----------
+function showWarn(msg){ $('warnBanner').textContent = msg; $('warnBanner').classList.add('show'); }
+function hideWarn(){ $('warnBanner').classList.remove('show'); }
+
+// ---------- file loading ----------
+const dropzone = $('dropzone');
+const fileInput = $('fileInput');
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault(); dropzone.classList.remove('drag');
+  if(e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => { if(e.target.files[0]) loadFile(e.target.files[0]); });
+
+function loadFile(file){
+  clearLog(); hideWarn();
+  log('reading ' + file.name + ' (' + Math.round(file.size/1024) + ' KB)');
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      sourceImg = img;
+      sourceCanvas.width = img.width;
+      sourceCanvas.height = img.height;
+      sourceCanvas.getContext('2d').drawImage(img, 0, 0);
+      log('loaded: ' + img.width + '×' + img.height, 'l-ok');
+      checkResolutionWarning(img.width, img.height);
+      $('runBtn').disabled = false;
+      showOriginalOnly();
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function checkResolutionWarning(w, h){
+  const scale = parseFloat($('scale').value);
+  const outPx = w * scale * h * scale;
+  if(outPx > 16e6){
+    const maxScale = Math.floor(Math.sqrt(16e6 / (w*h)) * 10) / 10;
+    showWarn('⚠ At ' + scale + '× this image would be ' + Math.round(outPx/1e6) + 'MP — capped at ' + maxScale.toFixed(1) + '× to avoid crash.');
+  }
+}
+
+$('scale').addEventListener('input', e => {
+  $('scaleVal').textContent = parseFloat(e.target.value).toFixed(2) + '×';
+  if(sourceImg) checkResolutionWarning(sourceImg.width, sourceImg.height);
+});
+$('sharpen').addEventListener('input', e => $('sharpenVal').textContent = parseFloat(e.target.value).toFixed(1));
+$('fineRadius').addEventListener('input', e => {
+  const v = parseInt(e.target.value);
+  $('fineRadiusVal').textContent = v === 0 ? 'auto' : v;
+});
+$('clarityAmt').addEventListener('input', e => $('clarityAmtVal').textContent = parseFloat(e.target.value).toFixed(2));
+$('vibrance').addEventListener('input', e => $('vibranceVal').textContent = parseFloat(e.target.value).toFixed(2));
+$('clip').addEventListener('input', e => $('clipVal').textContent = parseFloat(e.target.value).toFixed(1));
+
+// ---------- Web Worker (inline blob) ----------
+// All pixel math runs off the main thread — no more "Page Unresponsive" dialogs.
+const workerCode = `
+// =====================================================================
+// CORE ALGORITHMS — all run inside a Web Worker
+// =====================================================================
+
+// cubic weight kernel (Catmull-Rom / Mitchell style, a=-0.5)
+function cubicWeight(x, a){
+  a = a === undefined ? -0.5 : a;
+  x = x < 0 ? -x : x;
+  if(x <= 1) return (a+2)*x*x*x - (a+3)*x*x + 1;
+  if(x < 2)  return a*x*x*x - 5*a*x*x + 8*a*x - 4*a;
+  return 0;
+}
+
+function nearestUpscale(srcData, srcW, srcH, scale){
+  const newW = Math.max(1, Math.round(srcW * scale));
+  const newH = Math.max(1, Math.round(srcH * scale));
+  const src = srcData;
+  const out = new Uint8ClampedArray(newW * newH * 4);
+  for(let y = 0; y < newH; y++){
+    let sy = Math.floor((y + 0.5) / scale);
+    sy = sy < 0 ? 0 : (sy >= srcH ? srcH-1 : sy);
+    const srow = sy * srcW;
+    const drow = y * newW;
+    for(let x = 0; x < newW; x++){
+      let sx = Math.floor((x + 0.5) / scale);
+      sx = sx < 0 ? 0 : (sx >= srcW ? srcW-1 : sx);
+      const si = (srow + sx) * 4;
+      const di = (drow + x) * 4;
+      out[di] = src[si]; out[di+1] = src[si+1]; out[di+2] = src[si+2]; out[di+3] = 255;
+    }
+    if(y % 50 === 0) postMessage({ type:'progress', pct: Math.round(y/newH*40) });
+  }
+  return { data: out, width: newW, height: newH };
+}
+
+function bicubicUpscale(srcData, srcW, srcH, scale){
+  const newW = Math.max(1, Math.round(srcW * scale));
+  const newH = Math.max(1, Math.round(srcH * scale));
+  const src = srcData;
+  const out = new Uint8ClampedArray(newW * newH * 4);
+
+  for(let y = 0; y < newH; y++){
+    const srcY = (y + 0.5) / scale - 0.5;
+    const y0 = Math.floor(srcY);
+    const wy0 = cubicWeight(srcY - (y0-1));
+    const wy1 = cubicWeight(srcY - y0);
+    const wy2 = cubicWeight(srcY - (y0+1));
+    const wy3 = cubicWeight(srcY - (y0+2));
+    let ym1 = y0-1; ym1 = ym1<0?0:(ym1>=srcH?srcH-1:ym1);
+    let yc0 = y0;   yc0 = yc0<0?0:(yc0>=srcH?srcH-1:yc0);
+    let yc1 = y0+1; yc1 = yc1<0?0:(yc1>=srcH?srcH-1:yc1);
+    let yc2 = y0+2; yc2 = yc2<0?0:(yc2>=srcH?srcH-1:yc2);
+    const rowM1=ym1*srcW, row0=yc0*srcW, row1=yc1*srcW, row2=yc2*srcW;
+
+    for(let x = 0; x < newW; x++){
+      const srcX = (x + 0.5) / scale - 0.5;
+      const x0 = Math.floor(srcX);
+      const wx0 = cubicWeight(srcX - (x0-1));
+      const wx1 = cubicWeight(srcX - x0);
+      const wx2 = cubicWeight(srcX - (x0+1));
+      const wx3 = cubicWeight(srcX - (x0+2));
+      let xm1 = x0-1; xm1 = xm1<0?0:(xm1>=srcW?srcW-1:xm1);
+      let xc0 = x0;   xc0 = xc0<0?0:(xc0>=srcW?srcW-1:xc0);
+      let xc1 = x0+1; xc1 = xc1<0?0:(xc1>=srcW?srcW-1:xc1);
+      let xc2 = x0+2; xc2 = xc2<0?0:(xc2>=srcW?srcW-1:xc2);
+      const oi = (y*newW + x)*4;
+
+      const im1xm1=(rowM1+xm1)*4, im1x0=(rowM1+xc0)*4, im1x1=(rowM1+xc1)*4, im1x2=(rowM1+xc2)*4;
+      const i0xm1=(row0+xm1)*4,   i0x0=(row0+xc0)*4,   i0x1=(row0+xc1)*4,   i0x2=(row0+xc2)*4;
+      const i1xm1=(row1+xm1)*4,   i1x0=(row1+xc0)*4,   i1x1=(row1+xc1)*4,   i1x2=(row1+xc2)*4;
+      const i2xm1=(row2+xm1)*4,   i2x0=(row2+xc0)*4,   i2x1=(row2+xc1)*4,   i2x2=(row2+xc2)*4;
+
+      for(let c = 0; c < 3; c++){
+        const r0 = src[im1xm1+c]*wx0 + src[im1x0+c]*wx1 + src[im1x1+c]*wx2 + src[im1x2+c]*wx3;
+        const r1 = src[i0xm1+c]*wx0  + src[i0x0+c]*wx1  + src[i0x1+c]*wx2  + src[i0x2+c]*wx3;
+        const r2 = src[i1xm1+c]*wx0  + src[i1x0+c]*wx1  + src[i1x1+c]*wx2  + src[i1x2+c]*wx3;
+        const r3 = src[i2xm1+c]*wx0  + src[i2x0+c]*wx1  + src[i2x1+c]*wx2  + src[i2x2+c]*wx3;
+        out[oi+c] = r0*wy0 + r1*wy1 + r2*wy2 + r3*wy3;
+      }
+      out[oi+3] = 255;
+    }
+    if(y % 50 === 0) postMessage({ type:'progress', pct: Math.round(y/newH*40) });
+  }
+  return { data: out, width: newW, height: newH };
+}
+
+// Separable box blur — O(n) regardless of radius
+function boxBlurPass(src, w, h, radius, horizontal){
+  const out = new Float32Array(src.length);
+  const k = radius*2 + 1;
+  if(horizontal){
+    for(let y = 0; y < h; y++){
+      const rb = y*w*4;
+      for(let c = 0; c < 3; c++){
+        let sum = 0;
+        for(let d = -radius; d <= radius; d++){
+          const xx = d<0?0:(d>=w?w-1:d);
+          sum += src[rb + xx*4 + c];
+        }
+        out[rb + c] = sum/k;
+        for(let x = 1; x < w; x++){
+          let addX = x+radius; addX = addX>=w?w-1:addX;
+          let remX = x-radius-1; remX = remX<0?0:remX;
+          sum += src[rb + addX*4+c] - src[rb + remX*4+c];
+          out[rb + x*4+c] = sum/k;
+        }
+      }
+    }
+  } else {
+    for(let x = 0; x < w; x++){
+      const cb = x*4;
+      for(let c = 0; c < 3; c++){
+        let sum = 0;
+        for(let d = -radius; d <= radius; d++){
+          const yy = d<0?0:(d>=h?h-1:d);
+          sum += src[yy*w*4 + cb+c];
+        }
+        out[cb+c] = sum/k;
+        for(let y = 1; y < h; y++){
+          let addY = y+radius; addY = addY>=h?h-1:addY;
+          let remY = y-radius-1; remY = remY<0?0:remY;
+          sum += src[addY*w*4+cb+c] - src[remY*w*4+cb+c];
+          out[y*w*4+cb+c] = sum/k;
+        }
+      }
+    }
+  }
+  return out;
+}
+
+function boxBlur3(data, w, h, radius){
+  // 3-pass box blur approximates Gaussian
+  let p = data instanceof Float32Array ? data : new Float32Array(data);
+  p = boxBlurPass(p, w, h, radius, true);
+  p = boxBlurPass(p, w, h, radius, false);
+  p = boxBlurPass(p, w, h, radius, true);
+  p = boxBlurPass(p, w, h, radius, false);
+  return p;
+}
+
+function unsharpMask(data, w, h, amount, radius){
+  const blurred = boxBlur3(data, w, h, radius);
+  const out = new Uint8ClampedArray(w*h*4);
+  for(let i = 0; i < data.length; i += 4){
+    for(let c = 0; c < 3; c++){
+      out[i+c] = Math.max(0, Math.min(255, data[i+c] + amount * (data[i+c] - blurred[i+c])));
+    }
+    out[i+3] = 255;
+  }
+  return out;
+}
+
+// O(n) histogram-based contrast stretch — much faster than sort
+function contrastStretch(data, w, h, clipPct){
+  const n = w*h;
+  const clip = Math.max(0, clipPct/100);
+  const lo_count = Math.floor(n * clip);
+  const hi_count = Math.floor(n * clip);
+  const out = new Uint8ClampedArray(data.length);
+
+  for(let c = 0; c < 3; c++){
+    const hist = new Int32Array(256);
+    for(let i = c; i < data.length; i += 4) hist[data[i]]++;
+    let lo=0, count=0;
+    while(lo<255 && count+hist[lo] <= lo_count){ count+=hist[lo]; lo++; }
+    let hi=255; count=0;
+    while(hi>0 && count+hist[hi] <= hi_count){ count+=hist[hi]; hi--; }
+    const range = Math.max(hi-lo, 1);
+    for(let i = c; i < data.length; i += 4){
+      out[i] = Math.max(0, Math.min(255, (data[i]-lo)*255/range));
+    }
+  }
+  for(let i = 3; i < data.length; i += 4) out[i] = 255;
+  return out;
+}
+
+// Vibrance: boost saturation more on less-saturated pixels (smart saturation)
+function applyVibrance(data, vibranceAmt){
+  const out = new Uint8ClampedArray(data.length);
+  for(let i = 0; i < data.length; i += 4){
+    const r = data[i]/255, g = data[i+1]/255, b = data[i+2]/255;
+    const mx = Math.max(r,g,b);
+    const mn = Math.min(r,g,b);
+    const sat = mx > 0 ? (mx-mn)/mx : 0;
+    // vibrance: amplify more where already less saturated
+    const boost = 1 + vibranceAmt * (1 - sat*1.5);
+    const lum = 0.2126*r + 0.7152*g + 0.0722*b;
+    out[i]   = Math.max(0, Math.min(255, (lum + (r-lum)*boost)*255));
+    out[i+1] = Math.max(0, Math.min(255, (lum + (g-lum)*boost)*255));
+    out[i+2] = Math.max(0, Math.min(255, (lum + (b-lum)*boost)*255));
+    out[i+3] = 255;
+  }
+  return out;
+}
+
+// =====================================================================
+// Pipeline entry point
+// =====================================================================
+self.onmessage = function(e){
+  const { srcData, srcW, srcH, opts } = e.data;
+
+  let data = srcData;
+  let W = srcW, H = srcH;
+
+  postMessage({ type:'log', msg:'loaded: '+W+'×'+H });
+
+  // --- Upscale ---
+  const scale = opts.scale;
+  // Safety cap: 16 megapixels max output
+  const maxPx = 16000000;
+  const effScale = (W*scale * H*scale) > maxPx
+    ? Math.sqrt(maxPx/(W*H))
+    : scale;
+
+  if(effScale !== scale)
+    postMessage({ type:'log', msg:'⚠ scale capped at '+effScale.toFixed(2)+'× (16MP limit)', cls:'l-tag' });
+
+  if(effScale > 1.001){
+    if(opts.logoMode){
+      postMessage({ type:'log', msg:'upscaling '+effScale.toFixed(2)+'× (nearest-neighbor, edge-preserving)…' });
+      const result = nearestUpscale(data, W, H, effScale);
+      data = result.data; W = result.width; H = result.height;
+    } else {
+      postMessage({ type:'log', msg:'upscaling '+effScale.toFixed(2)+'× (bicubic)…' });
+      const result = bicubicUpscale(data, W, H, effScale);
+      data = result.data; W = result.width; H = result.height;
+    }
+    postMessage({ type:'log', msg:'upscaled to '+W+'×'+H, cls:'l-ok' });
+  }
+
+  postMessage({ type:'progress', pct: 45 });
+
+  // --- Contrast stretch first (before sharpening so no halos amplified) ---
+  if(opts.contrast){
+    data = contrastStretch(data, W, H, opts.clip);
+    postMessage({ type:'log', msg:'contrast stretched (clip='+opts.clip+'%)', cls:'l-ok' });
+  }
+
+  postMessage({ type:'progress', pct: 55 });
+
+  // --- Sharpen ---
+  if(opts.sharpen && opts.sharpenAmt > 0){
+    const shortSide = Math.min(W, H);
+    const fineR = opts.fineRadius > 0 ? opts.fineRadius : Math.max(1, Math.round(shortSide/500));
+    const amt = opts.logoMode ? Math.min(opts.sharpenAmt, 0.6) : opts.sharpenAmt;
+    data = unsharpMask(data, W, H, amt, opts.logoMode ? 1 : fineR);
+    postMessage({ type:'log', msg:'detail sharpen (amt='+amt.toFixed(1)+', r='+(opts.logoMode?1:fineR)+')', cls:'l-ok' });
+
+    postMessage({ type:'progress', pct: 72 });
+
+    // Clarity (wide-radius midtone contrast) — skipped in logo mode, it's what causes the haze on flat art
+    if(opts.clarity && opts.clarityAmt > 0 && !opts.logoMode){
+      const clarR = Math.max(6, Math.round(shortSide/50));
+      data = unsharpMask(data, W, H, opts.clarityAmt, clarR);
+      postMessage({ type:'log', msg:'clarity (amt='+opts.clarityAmt.toFixed(2)+', r='+clarR+')', cls:'l-ok' });
+    } else if(opts.logoMode && opts.clarity){
+      postMessage({ type:'log', msg:'clarity skipped (logo mode)', cls:'l-tag' });
+    }
+  }
+
+  postMessage({ type:'progress', pct: 88 });
+
+  // --- Vibrance ---
+  if(opts.vibrance && opts.vibranceAmt > 0){
+    data = applyVibrance(data, opts.vibranceAmt);
+    postMessage({ type:'log', msg:'vibrance ('+opts.vibranceAmt.toFixed(2)+')', cls:'l-ok' });
+  }
+
+  postMessage({ type:'progress', pct: 97 });
+
+  // Transfer the buffer to avoid clone overhead on large images
+  postMessage({ type:'done', data, width: W, height: H }, [data.buffer]);
+};
+`;
+
+// ---------- Cloudinary cloud upscale ----------
+function loadImageEl(src){
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('could not load result image'));
+    img.src = src;
+  });
+}
+
+async function runCloudUpscale(){
+  const cloudName = $('cloudName').value.trim();
+  const preset = $('uploadPreset').value.trim();
+
+  if(!cloudName || !preset){
+    log('enter your Cloudinary cloud name + unsigned upload preset first', 'l-err');
+    finishRunUI();
+    return;
+  }
+
+  try{
+    setProgress(10);
+    log('uploading to cloudinary…');
+    const blob = await new Promise(res => sourceCanvas.toBlob(res, 'image/png'));
+
+    const form = new FormData();
+    form.append('file', blob);
+    form.append('upload_preset', preset);
+
+    const upRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+      method: 'POST',
+      body: form
+    });
+    if(!upRes.ok){
+      let msg = upRes.status + ' ' + upRes.statusText;
+      try{
+        const errJson = await upRes.clone().json();
+        if(errJson?.error?.message) msg = errJson.error.message;
+      }catch{
+        const errBody = await upRes.text().catch(() => '');
+        if(errBody) msg = errBody.slice(0,150);
+      }
+      if(/preset not found/i.test(msg)){
+        msg += ' — check the preset name is exact and its Signing Mode is set to "Unsigned" in Cloudinary → Settings → Upload';
+      } else if(upRes.status === 401 || /cloud_name/i.test(msg)){
+        msg += ' — check the cloud name is correct';
+      }
+      throw new Error(msg);
+    }
+    const upJson = await upRes.json();
+    setProgress(55);
+    log('uploaded: ' + upJson.width + '×' + upJson.height, 'l-ok');
+
+    log('requesting AI upscale (e_upscale)…');
+    const upscaledUrl = `https://res.cloudinary.com/${cloudName}/image/upload/e_upscale/${upJson.public_id}.${upJson.format}`;
+    const img = await loadImageEl(upscaledUrl);
+    setProgress(100);
+    log('upscaled to ' + img.naturalWidth + '×' + img.naturalHeight, 'l-ok');
+    log('done.', 'l-tag');
+
+    renderCompareSrc(upscaledUrl, img.naturalWidth, img.naturalHeight);
+
+    $('dlBtn').style.display = 'block';
+    $('dlBtn').onclick = async () => {
+      const res = await fetch(upscaledUrl);
+      const b = await res.blob();
+      const url = URL.createObjectURL(b);
+      const a = document.createElement('a');
+      a.download = 'upscaled.' + upJson.format;
+      a.href = url;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+  }catch(err){
+    log('cloud error: ' + err.message, 'l-err');
+  }finally{
+    finishRunUI();
+  }
+}
+
+function finishRunUI(){
+  $('runBtn').disabled = false;
+  $('runBtn').textContent = 'process image';
+  $('runBtn').classList.remove('running');
+  setTimeout(() => $('progressBar').classList.remove('active'), 600);
+}
+
+$('cloudOn').addEventListener('change', e => {
+  const on = e.target.checked;
+  ['scale','sharpen','fineRadius','clarityAmt','vibrance','clip','sharpenOn','clarityOn','vibranceOn','contrastOn']
+    .forEach(id => $(id).disabled = on);
+  syncLogoModeUI();
+});
+
+// Fine radius and clarity have zero effect in logo mode (worker forces radius=1
+// and skips clarity entirely) — disable + dim them so that's obvious rather than
+// misleading the user into thinking those sliders are doing something.
+function syncLogoModeUI(){
+  const on = $('logoMode').checked;
+  const cloudOn = $('cloudOn').checked;
+  ['fineRadius','clarityOn','clarityAmt'].forEach(id => $(id).disabled = on || cloudOn);
+  const clarityRow = $('clarityOn').closest('label');
+  const clarityField = $('clarityAmt').closest('.field');
+  const fineField = $('fineRadius').closest('.field');
+  [clarityRow, clarityField, fineField].forEach(el => {
+    if(el) el.style.opacity = on ? 0.4 : 1;
+  });
+}
+$('logoMode').addEventListener('change', syncLogoModeUI);
+syncLogoModeUI();
+
+// ---------- run pipeline (local worker or Cloudinary) ----------
+$('runBtn').addEventListener('click', () => {
+  if(!sourceImg) return;
+
+  // Kill any running worker
+  if(currentWorker){ currentWorker.terminate(); currentWorker = null; }
+
+  clearLog(); hideWarn();
+  $('runBtn').disabled = true;
+  $('runBtn').textContent = 'processing…';
+  $('runBtn').classList.add('running');
+  $('progressBar').classList.add('active');
+  setProgress(0);
+
+  if($('cloudOn').checked){
+    runCloudUpscale();
+    return;
+  }
+
+  const blob = new Blob([workerCode], { type:'application/javascript' });
+  const url = URL.createObjectURL(blob);
+  currentWorker = new Worker(url);
+  URL.revokeObjectURL(url);
+
+  const W = sourceCanvas.width, H = sourceCanvas.height;
+  const ctx = sourceCanvas.getContext('2d');
+  const imgData = ctx.getImageData(0, 0, W, H);
+
+  // Check and cap scale before sending
+  let scale = parseFloat($('scale').value);
+  const maxPx = 16000000;
+  if(W*scale * H*scale > maxPx){
+    scale = Math.sqrt(maxPx/(W*H));
+    showWarn('Scale capped to ' + scale.toFixed(2) + '× to keep output ≤ 16MP.');
+  }
+
+  const opts = {
+    scale,
+    logoMode:    $('logoMode').checked,
+    sharpen:     $('sharpenOn').checked,
+    sharpenAmt:  parseFloat($('sharpen').value),
+    fineRadius:  parseInt($('fineRadius').value),
+    clarity:     $('clarityOn').checked,
+    clarityAmt:  parseFloat($('clarityAmt').value),
+    contrast:    $('contrastOn').checked,
+    clip:        parseFloat($('clip').value),
+    vibrance:    $('vibranceOn').checked,
+    vibranceAmt: parseFloat($('vibrance').value),
+  };
+
+  currentWorker.onmessage = e => {
+    const d = e.data;
+    if(d.type === 'log'){
+      log(d.msg, d.cls || '');
+    } else if(d.type === 'progress'){
+      setProgress(d.pct);
+    } else if(d.type === 'done'){
+      setProgress(100);
+      const outCanvas = document.createElement('canvas');
+      outCanvas.width  = d.width;
+      outCanvas.height = d.height;
+      outCanvas.getContext('2d').putImageData(new ImageData(d.data, d.width, d.height), 0, 0);
+      renderCompare(outCanvas);
+      log('done.', 'l-tag');
+
+      finishRunUI();
+
+      $('dlBtn').style.display = 'block';
+      $('dlBtn').onclick = () => {
+        const a = document.createElement('a');
+        a.download = 'upscaled.png';
+        a.href = outCanvas.toDataURL('image/png');
+        a.click();
+      };
+      currentWorker = null;
+    }
+  };
+
+  currentWorker.onerror = err => {
+    log('worker error: ' + err.message, 'l-err');
+    finishRunUI();
+    $('progressBar').classList.remove('active');
+    currentWorker = null;
+  };
+
+  // Transfer the pixel buffer to the worker (zero-copy)
+  currentWorker.postMessage({ srcData: imgData.data, srcW: W, srcH: H, opts }, [imgData.data.buffer]);
+});
+
+function setProgress(pct){
+  $('progressFill').style.width = pct + '%';
+}
+
+// ---------- original-only preview ----------
+function showOriginalOnly(){
+  const compare = $('compare');
+  compare.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'ba-slider';
+  wrap.style.maxWidth = 'none';
+  const img = document.createElement('img');
+  img.src = sourceCanvas.toDataURL();
+  img.addEventListener('click', () => openFullscreen(img.src, 'ORIGINAL', sourceCanvas.width, sourceCanvas.height));
+  wrap.appendChild(img);
+  compare.appendChild(wrap);
+  $('dlBtn').style.display = 'none';
+  $('meta').textContent = sourceCanvas.width + ' × ' + sourceCanvas.height + ' px (original)';
+}
+
+// ---------- before/after compare slider ----------
+function renderCompare(outCanvas){
+  renderCompareSrc(outCanvas.toDataURL(), outCanvas.width, outCanvas.height);
+}
+
+function renderCompareSrc(afterSrc, aw, ah){
+  const compare = $('compare');
+  compare.innerHTML = '';
+
+  const beforeSrc = sourceCanvas.toDataURL();
+  const bw = sourceCanvas.width, bh = sourceCanvas.height;
+
+  const slider = document.createElement('div');
+  slider.className = 'ba-slider';
+
+  const beforeImg = document.createElement('img');
+  beforeImg.src = beforeSrc;
+  beforeImg.addEventListener('click', () => openFullscreen(beforeSrc, 'ORIGINAL', bw, bh));
+
+  const afterWrap = document.createElement('div');
+  afterWrap.className = 'ba-after-wrap';
+  afterWrap.style.width = '50%';
+
+  const afterImg = document.createElement('img');
+  afterImg.src = afterSrc;
+  afterImg.addEventListener('click', () => openFullscreen(afterSrc, 'PROCESSED', aw, ah));
+  afterWrap.appendChild(afterImg);
+
+  const tagBefore = document.createElement('div');
+  tagBefore.className = 'ba-tag before';
+  tagBefore.textContent = 'ORIGINAL';
+
+  const tagAfter = document.createElement('div');
+  tagAfter.className = 'ba-tag after';
+  tagAfter.textContent = 'PROCESSED';
+
+  const line = document.createElement('div');
+  line.className = 'ba-line';
+  line.style.left = '50%';
+
+  const handle = document.createElement('div');
+  handle.className = 'ba-handle';
+  handle.style.left = '50%';
+  handle.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#0d0f0d" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg><svg viewBox="0 0 24 24" fill="none" stroke="#0d0f0d" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left:-5px;"><polyline points="9 18 15 12 9 6"></polyline></svg>';
+
+  slider.appendChild(beforeImg);
+  slider.appendChild(afterWrap);
+  slider.appendChild(tagBefore);
+  slider.appendChild(tagAfter);
+  slider.appendChild(line);
+  slider.appendChild(handle);
+  compare.appendChild(slider);
+
+  function syncAfterWidth(){
+    afterImg.style.width  = slider.offsetWidth  + 'px';
+    afterImg.style.height = slider.offsetHeight + 'px';
+  }
+  beforeImg.addEventListener('load', syncAfterWidth);
+  window.addEventListener('resize', syncAfterWidth);
+  syncAfterWidth();
+
+  let dragging = false;
+  function setSplit(clientX){
+    const rect = slider.getBoundingClientRect();
+    let pct = ((clientX - rect.left) / rect.width) * 100;
+    pct = Math.min(Math.max(pct, 0), 100);
+    afterWrap.style.width = pct + '%';
+    line.style.left  = pct + '%';
+    handle.style.left = pct + '%';
+  }
+  handle.addEventListener('mousedown', e => { dragging=true; e.preventDefault(); });
+  window.addEventListener('mouseup', () => dragging = false);
+  window.addEventListener('mousemove', e => { if(dragging) setSplit(e.clientX); });
+  handle.addEventListener('touchstart', e => { dragging=true; e.preventDefault(); });
+  window.addEventListener('touchend', () => dragging = false);
+  slider.addEventListener('touchmove', e => { e.preventDefault(); setSplit(e.touches[0].clientX); }, { passive:false });
+
+  $('meta').textContent = bw + '×' + bh + ' → ' + aw + '×' + ah + ' px';
+}
+
+// ---------- fullscreen modal ----------
+const modalOverlay = $('modalOverlay');
+const modalLabel   = $('modalLabel');
+const modalClose   = $('modalClose');
+
+function openFullscreen(src, label, w, h){
+  const old = modalOverlay.querySelector('img');
+  if(old) old.remove();
+  const img = document.createElement('img');
+  img.src = src;
+  img.addEventListener('click', closeFullscreen);
+  modalLabel.textContent = label + '  —  ' + w + '×' + h + ' px';
+  modalOverlay.insertBefore(img, modalClose);
+  modalOverlay.classList.add('open');
+}
+function closeFullscreen(){ modalOverlay.classList.remove('open'); }
+modalClose.addEventListener('click', closeFullscreen);
+modalOverlay.addEventListener('click', e => { if(e.target===modalOverlay) closeFullscreen(); });
+window.addEventListener('keydown', e => { if(e.key==='Escape') closeFullscreen(); });
+</script>
+</body>
+</html>

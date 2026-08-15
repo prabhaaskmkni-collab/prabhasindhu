@@ -1,0 +1,1193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Font Finder — Offline Trait Matcher</title>
+<style>
+  :root{
+    --bg:#0a0a0b;
+    --panel:#131315;
+    --panel-2:#18181b;
+    --line:#2a2a2e;
+    --ink:#e9e8e4;
+    --ink-dim:#9a9a9f;
+    --ink-faint:#59595e;
+    --accent:#f1541c;
+    --accent-dim:#f1541c33;
+    --go:#5fd97a;
+    --go-dim:#5fd97a1a;
+    --err:#ff9a8a;
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+    --sans:'Inter',system-ui,sans-serif;
+    --radius:5px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  [hidden]{display:none !important;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--sans);
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+
+  /* ---- Topbar ---- */
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;
+    padding:14px 22px;border-bottom:1px solid var(--line);
+  }
+  .brand{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .brand .mark{width:9px;height:9px;background:var(--accent);transform:rotate(45deg);flex-shrink:0;}
+  .brand b{font-family:var(--mono);letter-spacing:.08em;font-size:13px;}
+  .brand span{color:var(--ink-faint);font-family:var(--mono);font-size:11px;letter-spacing:.05em;}
+  .badge{font-family:var(--mono);font-size:10px;letter-spacing:.06em;color:var(--go);
+    border:1px solid #5fd97a44;padding:4px 8px;border-radius:3px;white-space:nowrap;}
+
+  /* ---- Layout ---- */
+  .layout{display:grid;grid-template-columns:360px 1fr;min-height:calc(100vh - 49px);}
+  @media (max-width:860px){.layout{grid-template-columns:1fr;}}
+
+  .side{border-right:1px solid var(--line);padding:20px;overflow-y:auto;}
+  @media (max-width:860px){.side{border-right:none;border-bottom:1px solid var(--line);}}
+
+  .label{font-family:var(--mono);font-size:10px;letter-spacing:.09em;color:var(--ink-faint);
+    text-transform:uppercase;margin:22px 0 8px;}
+  .label:first-child{margin-top:0;}
+
+  /* ---- Upload dropzone ---- */
+  .dropzone{
+    position:relative;
+    border:1px dashed var(--line);border-radius:6px;padding:22px 14px;text-align:center;
+    cursor:pointer;transition:border-color .15s, background .15s;
+    min-height:190px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+  }
+  .dropzone:hover, .dropzone.drag{border-color:var(--accent);background:var(--accent-dim);}
+  .dropzone svg{opacity:.5;margin-bottom:8px;}
+  .dropzone .t1{font-size:12.5px;color:var(--ink-dim);}
+  .dropzone .t1 b{color:var(--accent);font-weight:600;}
+  .dropzone .t2{font-family:var(--mono);font-size:10px;color:var(--ink-faint);margin-top:4px;}
+  .preview-canvas{max-width:100%;max-height:180px;border-radius:4px;border:1px solid var(--line);background:#fff;}
+  .text-btn{
+    background:none;border:none;color:var(--ink-faint);
+    font-family:var(--mono);font-size:10.5px;
+    text-decoration:underline;cursor:pointer;margin-top:10px;letter-spacing:.03em;
+  }
+  .text-btn:hover{color:var(--accent);}
+  .text-btn:disabled{opacity:.35;cursor:not-allowed;text-decoration:none;}
+
+  /* ---- Text field ---- */
+  input[type=text]{
+    width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:4px;
+    color:var(--ink);padding:9px 10px;font-family:var(--sans);font-size:13px;outline:none;
+  }
+  input[type=text]:focus{border-color:var(--accent);}
+  .field-hint{font-size:11px;color:var(--ink-faint);margin-top:6px;line-height:1.5;}
+
+  /* ---- Category chips ---- */
+  .chip-row{display:flex;flex-wrap:wrap;gap:7px;}
+  .chip{
+    font-family:var(--mono);
+    font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;
+    padding:7px 12px;
+    border:1px solid var(--line);
+    background:var(--panel-2);
+    cursor:pointer;
+    user-select:none;
+    color:var(--ink-dim);
+    border-radius:20px;
+    transition:.15s;
+  }
+  .chip.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);}
+  .chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+
+  /* ---- Go button ---- */
+  .go-btn{
+    width:100%;margin-top:22px;background:var(--accent);border:none;color:#fff;
+    font-family:var(--sans);font-weight:600;font-size:13.5px;padding:12px;border-radius:5px;
+    cursor:pointer;transition:filter .15s;text-transform:uppercase;letter-spacing:.03em;
+  }
+  .go-btn:hover:not(:disabled){filter:brightness(1.08);}
+  .go-btn:disabled{background:var(--panel-2);color:var(--ink-faint);cursor:not-allowed;}
+
+  .status-text{
+    font-family:var(--mono);
+    font-size:11px;color:var(--ink-dim);min-height:14px;margin:10px 0 0;line-height:1.5;
+  }
+  .status-text.err{color:var(--err);}
+
+  /* ---- Import (local fonts) section ---- */
+  .import-section{margin-top:22px;padding-top:18px;border-top:1px solid var(--line);}
+  .import-toggle-row{display:flex;align-items:center;gap:10px;}
+  .import-toggle-btn{
+    font-family:var(--mono);
+    font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
+    background:var(--panel-2);border:1px solid var(--line);
+    color:var(--ink-dim);padding:7px 12px;cursor:pointer;border-radius:20px;
+    display:flex;align-items:center;gap:6px;
+    transition:border-color .12s, color .12s, background .12s;
+  }
+  .import-toggle-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .import-toggle-btn.open{background:var(--accent-dim);color:var(--accent);border-color:var(--accent);}
+  .import-toggle-btn svg{width:11px;height:11px;flex-shrink:0;transition:transform .2s;}
+  .import-toggle-btn.open svg{transform:rotate(180deg);}
+  .import-badge{
+    font-family:var(--mono);font-size:9.5px;
+    background:var(--go);color:#06120a;
+    padding:2px 7px;border-radius:20px;letter-spacing:.04em;
+  }
+
+  .import-panel{
+    margin-top:12px;
+    border:1px solid var(--line);
+    background:var(--panel);
+    border-radius:6px;
+    padding:16px;
+  }
+  .import-tabs{display:flex;gap:0;margin-bottom:14px;border-bottom:1px solid var(--line);}
+  .import-tab{
+    font-family:var(--mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase;
+    background:none;border:none;border-bottom:2px solid transparent;
+    padding:7px 12px 8px;cursor:pointer;color:var(--ink-faint);margin-bottom:-1px;
+  }
+  .import-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+  .tab-pane{display:none;}
+  .tab-pane.active{display:block;}
+
+  .font-dropzone{
+    border:1px dashed var(--line);
+    padding:20px 14px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .15s, background .15s;
+    background:var(--panel-2);
+    border-radius:4px;
+  }
+  .font-dropzone:hover, .font-dropzone.drag{background:var(--accent-dim);border-color:var(--accent);}
+  .font-dropzone p{margin:0;font-size:11.5px;color:var(--ink-dim);}
+  .font-dropzone .sub{font-size:10px;margin-top:5px;color:var(--ink-faint);font-family:var(--mono);}
+
+  .manifest-area{
+    width:100%;min-height:120px;resize:vertical;
+    font-family:var(--mono);font-size:11px;
+    padding:10px;border:1px solid var(--line);background:var(--panel-2);
+    color:var(--ink);line-height:1.6;border-radius:4px;
+  }
+  .manifest-area:focus{outline:2px solid var(--accent);outline-offset:1px;}
+  .manifest-hint{font-size:10.5px;color:var(--ink-faint);margin-top:6px;line-height:1.5;}
+  .manifest-hint code{
+    font-family:var(--mono);font-size:10px;
+    background:var(--panel-2);padding:1px 4px;border-radius:2px;
+  }
+
+  .loaded-fonts-list{
+    list-style:none;margin:0;padding:0;
+    display:flex;flex-direction:column;gap:0;
+    max-height:220px;overflow-y:auto;
+  }
+  .loaded-font-item{
+    display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+    padding:8px 0;border-top:1px solid var(--line);font-size:12px;
+  }
+  .loaded-font-item:first-child{border-top:none;}
+  .lf-name{flex:1;font-weight:500;color:var(--ink);}
+  .lf-src{font-family:var(--mono);font-size:9.5px;color:var(--ink-faint);}
+  .lf-cat{
+    font-family:var(--mono);font-size:9.5px;
+    padding:2px 7px;border-radius:20px;border:1px solid var(--line);
+    color:var(--ink-dim);cursor:pointer;background:var(--panel-2);
+  }
+  .lf-remove{
+    background:none;border:none;cursor:pointer;color:var(--ink-faint);font-size:14px;
+    line-height:1;padding:0 2px;
+  }
+  .lf-remove:hover{color:var(--err);}
+
+  .import-actions{display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap;}
+  .secondary-btn{
+    font-family:var(--mono);
+    font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;
+    background:none;border:1px solid var(--line);
+    color:var(--ink-dim);padding:8px 14px;cursor:pointer;border-radius:4px;
+    transition:border-color .12s,color .12s;
+  }
+  .secondary-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .secondary-btn.danger:hover{border-color:var(--err);color:var(--err);}
+
+  .import-status{
+    font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);
+    margin-top:8px;min-height:14px;line-height:1.5;
+  }
+  .import-status.ok{color:var(--go);}
+  .import-status.err{color:var(--err);}
+
+  .lf-name-input{
+    font-family:var(--sans);font-size:12.5px;font-weight:500;
+    border:none;border-bottom:1px solid var(--line);
+    background:transparent;color:var(--ink);
+    padding:0 2px;width:100%;max-width:150px;
+  }
+  .lf-name-input:focus{outline:none;border-bottom-color:var(--accent);}
+
+  /* ---- Main / results area ---- */
+  .main{padding:22px 26px;overflow-y:auto;}
+  .empty{
+    height:100%;min-height:60vh;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;color:var(--ink-faint);text-align:center;gap:8px;
+  }
+  .empty b{color:var(--ink-dim);font-weight:500;font-size:14px;}
+  .empty span{font-size:12px;max-width:380px;line-height:1.6;}
+
+  .panel-card{
+    border:1px solid var(--line);border-radius:6px;padding:18px 20px;background:var(--panel);margin-bottom:22px;
+  }
+  .eyebrow{
+    font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-faint);
+    display:block;margin-bottom:12px;
+  }
+
+  .best-match-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;gap:12px;}
+  .score-badge{
+    font-family:var(--mono);
+    font-size:26px;font-weight:600;color:var(--go);
+  }
+  .font-name-display{
+    font-family:var(--sans);
+    font-size:clamp(26px,4vw,40px);
+    margin:2px 0 6px;
+    font-weight:700;
+    color:var(--ink);
+  }
+  .font-meta{
+    font-family:var(--mono);
+    font-size:11px;color:var(--ink-faint);margin:0 0 20px;line-height:1.6;
+  }
+
+  .silhouette-compare{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px;}
+  .silhouette-box{flex:1;min-width:220px;}
+  .silhouette-label{
+    display:block;font-family:var(--mono);font-size:9.5px;
+    letter-spacing:.07em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:6px;
+  }
+  .silhouette-box canvas{width:100%;height:auto;aspect-ratio:500/160;border:1px solid var(--line);border-radius:4px;background:#fff;display:block;}
+
+  .alphabet-preview{
+    border-top:1px solid var(--line);
+    padding-top:18px;
+    word-break:break-word;
+    line-height:1.35;
+    color:var(--ink);
+  }
+  .alphabet-preview .line1{font-size:24px;}
+  .alphabet-preview .line2{font-size:24px;}
+  .alphabet-preview .line3{font-size:20px;color:var(--ink-faint);}
+
+  .alt-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;}
+  .alt-item{
+    display:flex;align-items:center;gap:16px;
+    padding:14px 4px;border-top:1px solid var(--line);
+    cursor:pointer;border-radius:4px;
+  }
+  .alt-item:first-of-type{border-top:none;}
+  .alt-item:hover{background:var(--panel-2);}
+  .alt-score{
+    font-family:var(--mono);font-size:14px;color:var(--go);
+    width:44px;flex-shrink:0;text-align:right;
+  }
+  .alt-info{flex:1;min-width:0;}
+  .alt-name{font-family:var(--sans);font-size:16px;font-weight:600;color:var(--ink);}
+  .alt-meta{font-family:var(--mono);font-size:9.5px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.05em;}
+  .alt-preview{font-size:22px;flex-shrink:0;max-width:38%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-dim);}
+
+  .try-panel textarea, .try-panel input{
+    width:100%;font-family:var(--sans);font-size:13px;
+    padding:10px 12px;border:1px solid var(--line);margin-bottom:16px;
+    background:var(--panel-2);color:var(--ink);border-radius:4px;
+  }
+  .try-preview-text{
+    font-size:clamp(20px,3.6vw,30px);
+    line-height:1.3;
+    word-break:break-word;
+    border-top:1px solid var(--line);
+    padding-top:16px;
+    color:var(--ink);
+  }
+  .baseline-ruler{height:6px;border-top:1px solid var(--line);margin-top:4px;}
+
+  .progress{font-family:var(--mono);font-size:11px;color:var(--ink-dim);margin:0 0 20px;
+    display:flex;align-items:center;gap:10px;}
+  .progress .bar{flex:1;height:3px;background:var(--panel-2);border-radius:2px;overflow:hidden;}
+  .progress .bar i{display:block;height:100%;background:var(--accent);width:0%;transition:width .1s;}
+
+  footer.note{
+    margin-top:8px;
+    padding-top:18px;
+    border-top:1px solid var(--line);
+    font-size:11.5px;
+    color:var(--ink-faint);
+    max-width:680px;
+    line-height:1.6;
+  }
+  footer.note strong{color:var(--ink-dim);}
+  footer.note code{font-family:var(--mono);font-size:10.5px;background:var(--panel-2);padding:1px 4px;border-radius:2px;}
+
+  ::selection{background:var(--accent-dim);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="mark"></div>
+    <b>FONT FINDER</b>
+    <span id="mastheadKicker">// shape-matching · 38 reference fonts</span>
+  </div>
+  <div class="badge">● no API — runs entirely in your browser</div>
+</div>
+
+<div class="layout">
+
+  <!-- LEFT PANEL -->
+  <div class="side">
+
+    <div class="label">1 — Upload image</div>
+    <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Upload an image of text">
+      <input type="file" id="fileInput" hidden accept="image/*">
+      <div id="uploadEmpty">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#9a9a9f" stroke-width="1.4"><path d="M12 16V4M12 4l-4 4M12 4l4 4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+        <div class="t1"><b>Click to upload</b> or drag &amp; drop</div>
+        <div class="t2">PNG / JPG · a single word or short phrase works best · paste also works</div>
+      </div>
+      <canvas id="previewCanvas" class="preview-canvas" hidden></canvas>
+      <button id="removeImageBtn" class="text-btn" hidden type="button">Remove image</button>
+    </div>
+
+    <div class="label">2 — What does it say?</div>
+    <input type="text" id="textInput" placeholder="e.g. HELLO WORLD" autocomplete="off">
+    <div class="field-hint">Type it exactly as it appears — capitalization and punctuation help the match.</div>
+    <button id="detectBtn" class="text-btn" type="button" disabled>Detect text automatically</button>
+
+    <div class="label">3 — Narrow the search</div>
+    <div class="chip-row" id="categoryChips"></div>
+
+    <!-- ── Local Font Import ── -->
+    <div class="import-section">
+      <div class="import-toggle-row">
+        <button id="importToggleBtn" class="import-toggle-btn" type="button" aria-expanded="false">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6">
+            <path d="M7 1v8M4 6l3 3 3-3"/><path d="M1 11h12"/>
+          </svg>
+          Import local fonts
+          <svg id="chevron" viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M1 1l5 5 5-5"/>
+          </svg>
+        </button>
+        <span id="customFontBadge" class="import-badge" hidden>0 loaded</span>
+      </div>
+
+      <div id="importPanel" class="import-panel" hidden>
+        <div class="import-tabs">
+          <button class="import-tab active" data-tab="files" type="button">Font files</button>
+          <button class="import-tab" data-tab="manifest" type="button">JSON manifest</button>
+          <button class="import-tab" data-tab="loaded" type="button">Loaded fonts</button>
+        </div>
+
+        <!-- Tab: font files -->
+        <div class="tab-pane active" id="tab-files">
+          <div id="fontDropzone" class="font-dropzone" tabindex="0" role="button" aria-label="Upload font files">
+            <input type="file" id="fontFileInput" hidden accept=".ttf,.otf,.woff,.woff2" multiple>
+            <p>Drag font files here, or click to browse</p>
+            <p class="sub">.ttf · .otf · .woff · .woff2 · multiple files at once</p>
+          </div>
+          <div class="import-status" id="fileImportStatus"></div>
+        </div>
+
+        <!-- Tab: JSON manifest -->
+        <div class="tab-pane" id="tab-manifest">
+          <textarea class="manifest-area" id="manifestInput" spellcheck="false" placeholder='[
+  { "name": "My Brand Serif", "file": "BrandSerif-Regular.ttf", "cat": "serif" },
+  { "name": "My Brand Bold",  "file": "BrandSerif-Bold.ttf",   "cat": "serif", "weight": "700" },
+  { "name": "Custom Sans",    "file": "CustomSans.otf",         "cat": "sans" }
+]'></textarea>
+          <p class="manifest-hint">
+            Each entry needs <code>name</code> and <code>file</code> (filename only — the actual file must be dropped in the <em>Font files</em> tab or pre-loaded). Optional: <code>cat</code> (sans · serif · display · script · mono) and <code>weight</code> (400 · 700).
+          </p>
+          <div class="import-actions">
+            <button id="applyManifestBtn" class="secondary-btn" type="button">Apply manifest</button>
+            <button id="downloadManifestBtn" class="secondary-btn" type="button">Download current manifest</button>
+          </div>
+          <div class="import-status" id="manifestStatus"></div>
+        </div>
+
+        <!-- Tab: loaded fonts -->
+        <div class="tab-pane" id="tab-loaded">
+          <ul class="loaded-fonts-list" id="loadedFontsList">
+            <li style="font-size:12px;color:var(--ink-faint);padding:8px 0;">No local fonts loaded yet.</li>
+          </ul>
+          <div class="import-actions" id="loadedActions" hidden>
+            <button id="clearAllFontsBtn" class="secondary-btn danger" type="button">Remove all</button>
+            <button id="downloadManifestBtn2" class="secondary-btn" type="button">Download manifest</button>
+          </div>
+          <div class="import-status" id="loadedStatus"></div>
+        </div>
+      </div>
+    </div>
+    <!-- end import section -->
+
+    <button id="analyzeBtn" class="go-btn" disabled type="button">Analyze font</button>
+    <p class="status-text" id="statusText"></p>
+  </div>
+
+  <!-- RIGHT MAIN -->
+  <div class="main">
+
+    <div class="empty" id="emptyState">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#3a3a3e" stroke-width="1.3"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg>
+      <b>No image analyzed yet</b>
+      <span>Upload a photo of some type, tell it what the text says, then run the analysis. It converts your image to a silhouette and compares it against a library of real fonts — no AI vision, no API calls.</span>
+    </div>
+
+    <section id="resultsSection" hidden>
+
+      <div class="panel-card best-match-panel">
+        <div class="best-match-header">
+          <span class="eyebrow">Best match</span>
+          <span class="score-badge" id="bestScore">—</span>
+        </div>
+        <h2 class="font-name-display" id="bestFontName">—</h2>
+        <p class="font-meta" id="bestFontMeta">—</p>
+
+        <div class="silhouette-compare">
+          <div class="silhouette-box">
+            <span class="silhouette-label">Your image, isolated</span>
+            <canvas id="targetMaskCanvas" width="500" height="160"></canvas>
+          </div>
+          <div class="silhouette-box">
+            <span class="silhouette-label">Best match, rendered</span>
+            <canvas id="bestMaskCanvas" width="500" height="160"></canvas>
+          </div>
+        </div>
+
+        <div class="alphabet-preview" id="bestAlphabetPreview"></div>
+      </div>
+
+      <div class="panel-card">
+        <span class="eyebrow">Other close matches</span>
+        <ul class="alt-list" id="altList"></ul>
+      </div>
+
+      <div class="panel-card try-panel">
+        <span class="eyebrow">Preview any match with your own text</span>
+        <input type="text" id="tryTextInput" value="The quick brown fox jumps over the lazy dog">
+        <div class="try-preview-text" id="tryPreview"></div>
+        <div class="baseline-ruler"></div>
+      </div>
+
+      <footer class="note">
+        <p><strong>How this works.</strong> There's no trained neural network here — this runs entirely in your browser. It converts your image to a black-and-white silhouette of the text, renders your typed text in the loaded fonts, and scores each by how much their silhouettes overlap (Dice coefficient) plus how closely their proportions match. Local fonts are registered as <code>@font-face</code> rules from the binary data you drop in — nothing is sent to a server. Treat close percentages as "similar shape family" rather than a certified font ID.</p>
+        <p style="margin-top:8px;"><strong>Manifest format.</strong> A JSON array of objects with <code>name</code> (display name), <code>file</code> (filename as uploaded), optional <code>cat</code> (sans · serif · display · script · mono) and optional <code>weight</code> (400 · 700). The font binary must be loaded via the Font files tab; the manifest maps names to those files.</p>
+      </footer>
+
+    </section>
+
+  </div>
+
+</div>
+
+<link rel="stylesheet" id="fontLink" href="">
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+<script>
+(function(){
+
+  // ============================================================
+  // Font library (built-in Google Fonts)
+  // ============================================================
+  const BUILTIN_FONTS = [
+    {name:'Roboto', cat:'sans'},
+    {name:'Open Sans', cat:'sans'},
+    {name:'Lato', cat:'sans'},
+    {name:'Montserrat', cat:'sans'},
+    {name:'Poppins', cat:'sans'},
+    {name:'Inter', cat:'sans'},
+    {name:'Work Sans', cat:'sans'},
+    {name:'Nunito', cat:'sans'},
+    {name:'Rubik', cat:'sans'},
+    {name:'Raleway', cat:'sans'},
+    {name:'Mulish', cat:'sans'},
+    {name:'Karla', cat:'sans'},
+    {name:'Manrope', cat:'sans'},
+    {name:'DM Sans', cat:'sans'},
+    {name:'Barlow', cat:'sans'},
+    {name:'Merriweather', cat:'serif'},
+    {name:'Playfair Display', cat:'serif'},
+    {name:'Lora', cat:'serif'},
+    {name:'PT Serif', cat:'serif'},
+    {name:'Libre Baskerville', cat:'serif'},
+    {name:'Crimson Text', cat:'serif'},
+    {name:'Bitter', cat:'serif'},
+    {name:'Cormorant Garamond', cat:'serif'},
+    {name:'Oswald', cat:'display'},
+    {name:'Bebas Neue', cat:'display'},
+    {name:'Anton', cat:'display'},
+    {name:'Archivo Black', cat:'display'},
+    {name:'Fjalla One', cat:'display'},
+    {name:'Righteous', cat:'display'},
+    {name:'Pacifico', cat:'script'},
+    {name:'Dancing Script', cat:'script'},
+    {name:'Caveat', cat:'script'},
+    {name:'Sacramento', cat:'script'},
+    {name:'Great Vibes', cat:'script'},
+    {name:'Roboto Mono', cat:'mono'},
+    {name:'IBM Plex Mono', cat:'mono'},
+    {name:'Space Mono', cat:'mono'},
+    {name:'JetBrains Mono', cat:'mono'},
+  ];
+
+  // Local fonts added by user: {name, cat, weight:'400'|'700', src:'local-XXXX', filename}
+  const localFonts = [];
+  // Map: filename → object URL (blob URL)
+  const fileURLs = {};
+
+  function allFonts(){ return [...BUILTIN_FONTS, ...localFonts]; }
+
+  const CATS = [
+    {id:'all', label:'All'},
+    {id:'sans', label:'Sans Serif'},
+    {id:'serif', label:'Serif'},
+    {id:'display', label:'Display'},
+    {id:'script', label:'Script'},
+    {id:'mono', label:'Monospace'},
+  ];
+
+  // ============================================================
+  // Google Fonts stylesheet
+  // ============================================================
+  function buildFontHref(){
+    const parts = BUILTIN_FONTS.map(f=>{
+      const extra = (f.name==='Inter' || f.name==='IBM Plex Mono') ? '400;500;600;700' : '400;700';
+      return 'family=' + encodeURIComponent(f.name).replace(/%20/g,'+') + ':wght@' + extra;
+    });
+    return 'https://fonts.googleapis.com/css2?' + parts.join('&') + '&display=swap';
+  }
+  document.getElementById('fontLink').href = buildFontHref();
+
+  // ============================================================
+  // Category chips
+  // ============================================================
+  const activeCats = new Set(['all']);
+  const chipRow = document.getElementById('categoryChips');
+  CATS.forEach(c=>{
+    const chip = document.createElement('button');
+    chip.type='button';
+    chip.className='chip' + (c.id==='all'?' active':'');
+    chip.textContent = c.label;
+    chip.dataset.cat = c.id;
+    chip.addEventListener('click', ()=>{
+      if(c.id==='all'){
+        activeCats.clear(); activeCats.add('all');
+      } else {
+        activeCats.delete('all');
+        if(activeCats.has(c.id)) activeCats.delete(c.id); else activeCats.add(c.id);
+        if(activeCats.size===0) activeCats.add('all');
+      }
+      chipRow.querySelectorAll('.chip').forEach(el=>{
+        el.classList.toggle('active', activeCats.has(el.dataset.cat));
+      });
+    });
+    chipRow.appendChild(chip);
+  });
+
+  // ============================================================
+  // Image upload handling
+  // ============================================================
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const uploadEmpty = document.getElementById('uploadEmpty');
+  const previewCanvas = document.getElementById('previewCanvas');
+  const removeBtn = document.getElementById('removeImageBtn');
+  const analyzeBtn = document.getElementById('analyzeBtn');
+  const textInput = document.getElementById('textInput');
+  const statusText = document.getElementById('statusText');
+  const emptyState = document.getElementById('emptyState');
+  const resultsSection = document.getElementById('resultsSection');
+
+  let uploadedImageData = null;
+  const MAX_DIM = 900;
+
+  function setStatus(msg, isErr){
+    statusText.textContent = msg || '';
+    statusText.classList.toggle('err', !!isErr);
+  }
+
+  // OCR
+  const detectBtn = document.getElementById('detectBtn');
+  let ocrWorker = null;
+  let ocrReady = typeof Tesseract !== 'undefined';
+
+  async function getOcrWorker(){
+    if(!ocrReady) throw new Error('Tesseract not loaded');
+    if(!ocrWorker) ocrWorker = await Tesseract.createWorker('eng');
+    return ocrWorker;
+  }
+  async function runOcr(forceOverwrite){
+    if(!uploadedImageData) return;
+    if(!ocrReady){
+      setStatus('Automatic text detection isn\'t available — type the text below.', true);
+      return;
+    }
+    detectBtn.disabled = true;
+    setStatus('Reading text from the image…');
+    try{
+      const worker = await getOcrWorker();
+      const {data:{text}} = await worker.recognize(previewCanvas);
+      const cleaned = (text||'').replace(/\s+/g,' ').trim();
+      if(cleaned){
+        if(forceOverwrite || !textInput.value.trim()) textInput.value = cleaned;
+        setStatus('Detected: \u201c'+cleaned+'\u201d — edit if needed, then analyze.');
+      } else {
+        setStatus('Couldn\'t confidently read any text — please type it below.', true);
+      }
+    }catch(err){
+      setStatus('Automatic text detection failed — please type the text below.', true);
+    }finally{
+      detectBtn.disabled = false;
+      checkReady();
+    }
+  }
+  detectBtn.addEventListener('click', ()=>runOcr(true));
+
+  function loadImageFile(file){
+    if(!file || !file.type.startsWith('image/')){
+      setStatus('That file doesn\'t look like an image.', true); return;
+    }
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = e=>{ img.src = e.target.result; };
+    reader.onerror = ()=>setStatus('Could not read that file.', true);
+    img.onload = ()=>{
+      let w=img.width, h=img.height;
+      if(w>MAX_DIM||h>MAX_DIM){ const sc=MAX_DIM/Math.max(w,h); w=Math.round(w*sc); h=Math.round(h*sc); }
+      previewCanvas.width=w; previewCanvas.height=h;
+      const ctx=previewCanvas.getContext('2d');
+      ctx.fillStyle='#fff'; ctx.fillRect(0,0,w,h);
+      ctx.drawImage(img,0,0,w,h);
+      uploadedImageData=ctx.getImageData(0,0,w,h);
+      uploadEmpty.hidden=true; previewCanvas.hidden=false; removeBtn.hidden=false;
+      detectBtn.disabled=false; checkReady();
+      setStatus('Image loaded — describe the text below, then analyze.');
+      runOcr(false);
+    };
+    img.onerror = ()=>setStatus('Could not load that image.', true);
+    reader.readAsDataURL(file);
+  }
+
+  dropzone.addEventListener('click', e=>{ if(!removeBtn.contains(e.target)) fileInput.click(); });
+  dropzone.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' ') fileInput.click(); });
+  fileInput.addEventListener('change', e=>{ if(e.target.files[0]) loadImageFile(e.target.files[0]); });
+  ['dragenter','dragover'].forEach(evt=>dropzone.addEventListener(evt, e=>{ e.preventDefault(); dropzone.classList.add('drag'); }));
+  ['dragleave','drop'].forEach(evt=>dropzone.addEventListener(evt, e=>{ e.preventDefault(); dropzone.classList.remove('drag'); }));
+  dropzone.addEventListener('drop', e=>{ const f=e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) loadImageFile(f); });
+  window.addEventListener('paste', e=>{
+    const items=e.clipboardData&&e.clipboardData.items;
+    if(!items) return;
+    for(const item of items){ if(item.type.startsWith('image/')){ loadImageFile(item.getAsFile()); break; } }
+  });
+  removeBtn.addEventListener('click', e=>{
+    e.stopPropagation();
+    uploadedImageData=null; uploadEmpty.hidden=false; previewCanvas.hidden=true;
+    removeBtn.hidden=true; detectBtn.disabled=true; fileInput.value='';
+    checkReady(); setStatus('');
+  });
+
+  function checkReady(){
+    analyzeBtn.disabled = !(uploadedImageData && textInput.value.trim().length>0);
+  }
+  textInput.addEventListener('input', checkReady);
+
+  // ============================================================
+  // LOCAL FONT IMPORT
+  // ============================================================
+
+  const importToggleBtn = document.getElementById('importToggleBtn');
+  const importPanel = document.getElementById('importPanel');
+  const customFontBadge = document.getElementById('customFontBadge');
+  const mastheadKicker = document.getElementById('mastheadKicker');
+
+  importToggleBtn.addEventListener('click', ()=>{
+    const open = importPanel.hidden;
+    importPanel.hidden = !open;
+    importToggleBtn.setAttribute('aria-expanded', open);
+    importToggleBtn.classList.toggle('open', open);
+  });
+
+  // Tabs
+  document.querySelectorAll('.import-tab').forEach(tab=>{
+    tab.addEventListener('click', ()=>{
+      document.querySelectorAll('.import-tab').forEach(t=>t.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('tab-'+tab.dataset.tab).classList.add('active');
+    });
+  });
+
+  // ---- Font file dropzone ----
+  const fontDropzone = document.getElementById('fontDropzone');
+  const fontFileInput = document.getElementById('fontFileInput');
+  const fileImportStatus = document.getElementById('fileImportStatus');
+
+  fontDropzone.addEventListener('click', ()=>fontFileInput.click());
+  fontDropzone.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' ') fontFileInput.click(); });
+  ['dragenter','dragover'].forEach(evt=>fontDropzone.addEventListener(evt, e=>{ e.preventDefault(); fontDropzone.classList.add('drag'); }));
+  ['dragleave','drop'].forEach(evt=>fontDropzone.addEventListener(evt, e=>{ e.preventDefault(); fontDropzone.classList.remove('drag'); }));
+  fontDropzone.addEventListener('drop', e=>{ handleFontFiles(e.dataTransfer.files); });
+  fontFileInput.addEventListener('change', e=>{ handleFontFiles(e.target.files); fontFileInput.value=''; });
+
+  const ALLOWED_EXTS = ['ttf','otf','woff','woff2'];
+
+  function handleFontFiles(fileList){
+    if(!fileList || !fileList.length) return;
+    let loaded=0, skipped=0;
+    Array.from(fileList).forEach(file=>{
+      const ext = file.name.split('.').pop().toLowerCase();
+      if(!ALLOWED_EXTS.includes(ext)){ skipped++; return; }
+      const url = URL.createObjectURL(file);
+      fileURLs[file.name] = url;
+      // Auto-register with inferred name
+      const baseName = file.name.replace(/\.(ttf|otf|woff2?)$/i,'').replace(/[-_]/g,' ');
+      registerLocalFont({name:baseName, filename:file.name, cat:'sans', weight:'400', url});
+      loaded++;
+    });
+    const msg = loaded+' font file'+(loaded!==1?'s':'')+' loaded'+(skipped?' ('+skipped+' skipped — wrong format)':'')+ '.';
+    setImportStatus(fileImportStatus, msg, loaded===0 && skipped>0 ? 'err' : 'ok');
+    refreshLoadedTab();
+    updateBadge();
+  }
+
+  // ---- Manifest tab ----
+  const manifestInput = document.getElementById('manifestInput');
+  const manifestStatus = document.getElementById('manifestStatus');
+  const applyManifestBtn = document.getElementById('applyManifestBtn');
+
+  applyManifestBtn.addEventListener('click', ()=>{
+    const raw = manifestInput.value.trim();
+    if(!raw){ setImportStatus(manifestStatus,'Paste a JSON array first.','err'); return; }
+    let parsed;
+    try{ parsed = JSON.parse(raw); }
+    catch(e){ setImportStatus(manifestStatus,'Invalid JSON: '+e.message,'err'); return; }
+    if(!Array.isArray(parsed)){ setImportStatus(manifestStatus,'Expected a JSON array ([…]).','err'); return; }
+    let ok=0, err=0, missing=0;
+    parsed.forEach(entry=>{
+      if(!entry.name||!entry.file){ err++; return; }
+      const url = fileURLs[entry.file];
+      if(!url){ missing++; /* Will still register — url can be filled later */ }
+      const weight = entry.weight || '400';
+      const cat = entry.cat || 'sans';
+      // Update if already registered by filename, else add
+      const existing = localFonts.find(f=>f.filename===entry.file && f.weight===weight);
+      if(existing){
+        existing.name = entry.name;
+        existing.cat = cat;
+      } else {
+        registerLocalFont({name:entry.name, filename:entry.file, cat, weight, url:url||null});
+      }
+      ok++;
+    });
+    let msg = ok+' entr'+(ok!==1?'ies':'y')+' applied';
+    if(missing) msg += ' ('+missing+' file'+(missing!==1?'s':'')+' not yet uploaded — drop them in Font files tab)';
+    if(err) msg += '; '+err+' skipped (missing name or file)';
+    setImportStatus(manifestStatus, msg, err>0||missing>0 ? (ok>0?'ok':'err') : 'ok');
+    refreshLoadedTab();
+    updateBadge();
+  });
+
+  function buildManifestJSON(){
+    return JSON.stringify(localFonts.map(f=>({
+      name: f.name,
+      file: f.filename,
+      cat: f.cat,
+      ...(f.weight!=='400'?{weight:f.weight}:{})
+    })), null, 2);
+  }
+
+  function downloadManifest(){
+    const blob = new Blob([buildManifestJSON()], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'font-manifest.json';
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+  }
+
+  document.getElementById('downloadManifestBtn').addEventListener('click', downloadManifest);
+  document.getElementById('downloadManifestBtn2').addEventListener('click', downloadManifest);
+
+  // ---- Loaded fonts tab ----
+  const loadedFontsList = document.getElementById('loadedFontsList');
+  const loadedActions = document.getElementById('loadedActions');
+  const loadedStatus = document.getElementById('loadedStatus');
+
+  document.getElementById('clearAllFontsBtn').addEventListener('click', ()=>{
+    localFonts.length = 0;
+    Object.keys(fileURLs).forEach(k=>{URL.revokeObjectURL(fileURLs[k]); delete fileURLs[k];});
+    refreshLoadedTab(); updateBadge();
+    setImportStatus(loadedStatus,'All local fonts removed.','ok');
+  });
+
+  function refreshLoadedTab(){
+    loadedFontsList.innerHTML='';
+    if(!localFonts.length){
+      const li=document.createElement('li');
+      li.style.cssText='font-size:12px;color:var(--ink-faint);padding:8px 0;';
+      li.textContent='No local fonts loaded yet.';
+      loadedFontsList.appendChild(li);
+      loadedActions.hidden=true;
+      return;
+    }
+    loadedActions.hidden=false;
+    localFonts.forEach((f,idx)=>{
+      const li=document.createElement('li');
+      li.className='loaded-font-item';
+
+      const nameIn=document.createElement('input');
+      nameIn.className='lf-name-input';
+      nameIn.value=f.name;
+      nameIn.title='Click to rename';
+      nameIn.addEventListener('change', ()=>{ f.name=nameIn.value||f.name; updateBadge(); });
+
+      const srcEl=document.createElement('span');
+      srcEl.className='lf-src';
+      srcEl.textContent=f.filename;
+
+      const catSel=document.createElement('select');
+      catSel.className='lf-cat';
+      ['sans','serif','display','script','mono'].forEach(c=>{
+        const o=document.createElement('option');
+        o.value=c; o.textContent=c;
+        if(c===f.cat) o.selected=true;
+        catSel.appendChild(o);
+      });
+      catSel.addEventListener('change', ()=>{ f.cat=catSel.value; });
+
+      const wtSel=document.createElement('select');
+      wtSel.className='lf-cat';
+      ['400','700'].forEach(w=>{
+        const o=document.createElement('option');
+        o.value=w; o.textContent=w==='400'?'Regular':'Bold';
+        if(w===f.weight) o.selected=true;
+        wtSel.appendChild(o);
+      });
+      wtSel.addEventListener('change', ()=>{ f.weight=wtSel.value; });
+
+      const rmBtn=document.createElement('button');
+      rmBtn.className='lf-remove'; rmBtn.type='button'; rmBtn.title='Remove'; rmBtn.textContent='×';
+      rmBtn.addEventListener('click', ()=>{
+        localFonts.splice(idx,1);
+        refreshLoadedTab(); updateBadge();
+      });
+
+      li.append(nameIn, srcEl, catSel, wtSel, rmBtn);
+      loadedFontsList.appendChild(li);
+    });
+  }
+
+  function setImportStatus(el, msg, type){
+    el.textContent=msg;
+    el.className='import-status'+(type?' '+type:'');
+  }
+
+  // Register a local font: injects @font-face and pushes to localFonts[]
+  function registerLocalFont({name, filename, cat, weight, url}){
+    const faceWeight = weight||'400';
+    if(url){
+      const style=document.createElement('style');
+      style.textContent = '@font-face { font-family:"'+name+'"; src:url("'+url+'"); font-weight:'+faceWeight+'; }';
+      document.head.appendChild(style);
+    }
+    localFonts.push({name, filename, cat:cat||'sans', weight:faceWeight, url:url||null});
+  }
+
+  function updateBadge(){
+    const n = localFonts.length;
+    customFontBadge.hidden = n===0;
+    customFontBadge.textContent = n+' loaded';
+    mastheadKicker.textContent = '// shape-matching · '+(BUILTIN_FONTS.length+n)+' fonts'+(n>0?' ('+n+' local)':'');
+  }
+
+  // ============================================================
+  // Image processing
+  // ============================================================
+  function otsuThreshold(gray){
+    const hist=new Array(256).fill(0);
+    for(let i=0;i<gray.length;i++) hist[gray[i]]++;
+    const total=gray.length;
+    let sum=0; for(let t=0;t<256;t++) sum+=t*hist[t];
+    let sumB=0,wB=0,wF=0,varMax=0,threshold=127;
+    for(let t=0;t<256;t++){
+      wB+=hist[t]; if(!wB) continue;
+      wF=total-wB; if(!wF) break;
+      sumB+=t*hist[t];
+      const mB=sumB/wB, mF=(sum-sumB)/wF;
+      const between=wB*wF*(mB-mF)*(mB-mF);
+      if(between>varMax){ varMax=between; threshold=t; }
+    }
+    return threshold;
+  }
+
+  function extractInkMask(imageData){
+    const {data,width:w,height:h}=imageData;
+    const gray=new Uint8ClampedArray(w*h);
+    for(let i=0,p=0;i<data.length;i+=4,p++)
+      gray[p]=Math.round(0.299*data[i]+0.587*data[i+1]+0.114*data[i+2]);
+    const t=otsuThreshold(gray);
+    let dark=0,light=0;
+    for(let i=0;i<gray.length;i++){ if(gray[i]<t) dark++; else light++; }
+    const darkIsInk=dark<=light;
+    const mask=new Uint8Array(w*h);
+    for(let i=0;i<gray.length;i++) mask[i]=(gray[i]<t)===darkIsInk?1:0;
+    const bbox=boundingBox(mask,w,h);
+    if(!bbox) return null;
+    return {mask,w,h,bbox};
+  }
+
+  function boundingBox(mask,w,h){
+    let x0=w,y0=h,x1=-1,y1=-1;
+    for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+      if(mask[y*w+x]){
+        if(x<x0)x0=x; if(x>x1)x1=x;
+        if(y<y0)y0=y; if(y>y1)y1=y;
+      }
+    }
+    return x1<0?null:{x0,y0,x1,y1};
+  }
+
+  function normalizeMask(mask,w,h,bbox,FW,FH,margin){
+    margin=margin||0.88;
+    const bw=bbox.x1-bbox.x0+1, bh=bbox.y1-bbox.y0+1;
+    const scale=Math.min((FW*margin)/bw,(FH*margin)/bh);
+    const drawW=bw*scale,drawH=bh*scale;
+    const offX=(FW-drawW)/2, offY=(FH-drawH)/2;
+    const out=new Uint8Array(FW*FH);
+    for(let y=0;y<FH;y++){
+      const sy=bbox.y0+(y-offY)/scale;
+      if(sy<bbox.y0||sy>bbox.y1) continue;
+      const iy=Math.round(sy); if(iy<0||iy>=h) continue;
+      for(let x=0;x<FW;x++){
+        const sx=bbox.x0+(x-offX)/scale;
+        if(sx<bbox.x0||sx>bbox.x1) continue;
+        const ix=Math.round(sx); if(ix<0||ix>=w) continue;
+        out[y*FW+x]=mask[iy*w+ix];
+      }
+    }
+    return out;
+  }
+
+  function maskToCanvas(mask,FW,FH,canvas){
+    canvas.width=FW; canvas.height=FH;
+    const ctx=canvas.getContext('2d');
+    const imgData=ctx.createImageData(FW,FH);
+    for(let i=0;i<mask.length;i++){
+      const v=mask[i]?20:255;
+      imgData.data[i*4]=v; imgData.data[i*4+1]=v; imgData.data[i*4+2]=v; imgData.data[i*4+3]=255;
+    }
+    ctx.putImageData(imgData,0,0);
+  }
+
+  function diceScore(a,b){
+    let inter=0,sa=0,sb=0;
+    for(let i=0;i<a.length;i++){
+      if(a[i]) sa++; if(b[i]) sb++; if(a[i]&&b[i]) inter++;
+    }
+    if(!(sa+sb)) return 0;
+    return (2*inter)/(sa+sb);
+  }
+
+  function renderFontMask(text,family,weight){
+    const tempCanvas=document.createElement('canvas');
+    const tempCtx=tempCanvas.getContext('2d');
+    tempCtx.font=weight+' 130px "'+family+'"';
+    const metrics=tempCtx.measureText(text);
+    const textWidth=Math.ceil(metrics.width);
+    const W=Math.max(800, textWidth+100);
+    const H=260;
+
+    const c=document.createElement('canvas');
+    c.width=W; c.height=H;
+    const ctx=c.getContext('2d');
+    ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#000';
+    ctx.textBaseline='alphabetic';
+    ctx.font=weight+' 130px "'+family+'"';
+    ctx.fillText(text,20,190);
+    const imgData=ctx.getImageData(0,0,W,H);
+    const gray=new Uint8ClampedArray(W*H);
+    for(let i=0,p=0;i<imgData.data.length;i+=4,p++)
+      gray[p]=Math.round(0.299*imgData.data[i]+0.587*imgData.data[i+1]+0.114*imgData.data[i+2]);
+    const mask=new Uint8Array(W*H);
+    for(let i=0;i<gray.length;i++) mask[i]=gray[i]<128?1:0;
+    const bbox=boundingBox(mask,W,H);
+    if(!bbox) return null;
+    return {mask,w:W,h:H,bbox};
+  }
+
+  const FW=500, FH=160;
+
+  // ============================================================
+  // Analyze
+  // ============================================================
+  const resultsSection2=document.getElementById('resultsSection');
+  const bestScoreEl=document.getElementById('bestScore');
+  const bestFontNameEl=document.getElementById('bestFontName');
+  const bestFontMetaEl=document.getElementById('bestFontMeta');
+  const targetMaskCanvas=document.getElementById('targetMaskCanvas');
+  const bestMaskCanvas=document.getElementById('bestMaskCanvas');
+  const bestAlphabetPreview=document.getElementById('bestAlphabetPreview');
+  const altList=document.getElementById('altList');
+  const tryTextInput=document.getElementById('tryTextInput');
+  const tryPreview=document.getElementById('tryPreview');
+
+  const CAT_LABELS={sans:'Sans Serif',serif:'Serif',display:'Display',script:'Script',mono:'Monospace'};
+
+  async function ensureFontsLoaded(list){
+    const jobs=[];
+    list.forEach(f=>{
+      const wt=f.weight||'400';
+      jobs.push(document.fonts.load(wt+' 100px "'+f.name+'"').catch(()=>{}));
+      if(wt!=='700')
+        jobs.push(document.fonts.load('700 100px "'+f.name+'"').catch(()=>{}));
+    });
+    await Promise.all(jobs);
+  }
+
+  function renderAlphabet(el,family,weight){
+    el.innerHTML=
+      '<div class="line1" style="font-family:\''+family+'\'; font-weight:'+weight+'">ABCDEFGHIJKLMNOPQRSTUVWXYZ</div>'+
+      '<div class="line2" style="font-family:\''+family+'\'; font-weight:'+weight+'">abcdefghijklmnopqrstuvwxyz</div>'+
+      '<div class="line3" style="font-family:\''+family+'\'; font-weight:'+weight+'">0123456789 &amp; !? .,</div>';
+  }
+
+  analyzeBtn.addEventListener('click', async ()=>{
+    if(!uploadedImageData) return;
+    const text=textInput.value.trim();
+    if(!text) return;
+
+    analyzeBtn.disabled=true;
+    resultsSection2.hidden=true;
+    setStatus('Isolating the text in your image…');
+
+    const targetInfo=extractInkMask(uploadedImageData);
+    if(!targetInfo){
+      setStatus('Couldn\'t find any text shapes — try a tighter crop with higher contrast.', true);
+      analyzeBtn.disabled=false; return;
+    }
+    const targetAspect=(targetInfo.bbox.x1-targetInfo.bbox.x0+1)/(targetInfo.bbox.y1-targetInfo.bbox.y0+1);
+    const targetNorm=normalizeMask(targetInfo.mask,targetInfo.w,targetInfo.h,targetInfo.bbox,FW,FH);
+    maskToCanvas(targetNorm,FW,FH,targetMaskCanvas);
+
+    const pool=allFonts();
+    const activeList=activeCats.has('all')?pool:pool.filter(f=>activeCats.has(f.cat));
+    const fontsToTry=activeList.length?activeList:pool;
+
+    setStatus('Loading '+fontsToTry.length+' reference fonts…');
+    await ensureFontsLoaded(fontsToTry);
+    await (document.fonts.ready||Promise.resolve());
+
+    setStatus('Comparing silhouettes…');
+    await new Promise(r=>setTimeout(r,80));
+
+    const results=[];
+    for(const f of fontsToTry){
+      let best=null;
+      const weightsToTry = f.weight ? [f.weight, f.weight==='400'?'700':'400'] : ['400','700'];
+      for(const weight of weightsToTry){
+        if(!document.fonts.check(weight+' 16px "'+f.name+'"')) continue;
+        const info=renderFontMask(text,f.name,weight);
+        if(!info) continue;
+        const aspect=(info.bbox.x1-info.bbox.x0+1)/(info.bbox.y1-info.bbox.y0+1);
+        const norm=normalizeMask(info.mask,info.w,info.h,info.bbox,FW,FH);
+        const dice=diceScore(targetNorm,norm);
+        const aspectSim=Math.max(0,1-Math.min(1,Math.abs(Math.log(targetAspect/aspect))/Math.log(3)));
+        const score=dice*0.82+aspectSim*0.18;
+        if(!best||score>best.score) best={score,weight,norm};
+      }
+      if(best) results.push({name:f.name,cat:f.cat,weight:best.weight,score:best.score,norm:best.norm,local:!!f.filename});
+    }
+
+    if(!results.length){
+      setStatus('None of the reference fonts loaded — check your connection and try again.', true);
+      analyzeBtn.disabled=false; return;
+    }
+
+    results.sort((a,b)=>b.score-a.score);
+    const top=results[0];
+    const pct=Math.round(top.score*100);
+    const weightLabel=top.weight==='700'?'Bold':'Regular';
+    const sourceLabel=top.local?'Local · ':'';
+
+    bestScoreEl.textContent=pct+'%';
+    bestFontNameEl.textContent=top.name;
+    bestFontNameEl.style.fontFamily='"'+top.name+'"';
+    bestFontMetaEl.textContent=sourceLabel+'Family: '+top.name+'  ·  Weight: '+weightLabel+'  ·  Category: '+CAT_LABELS[top.cat];
+    maskToCanvas(top.norm,FW,FH,bestMaskCanvas);
+    renderAlphabet(bestAlphabetPreview,top.name,top.weight);
+
+    altList.innerHTML='';
+    results.slice(1,8).forEach(r=>{
+      const li=document.createElement('li');
+      li.className='alt-item'; li.tabIndex=0;
+      const rp=Math.round(r.score*100);
+      const srcTag=r.local?'<span style="color:var(--go);font-size:9px;margin-left:4px;">LOCAL</span>':'';
+      li.innerHTML=
+        '<span class="alt-score">'+rp+'%</span>'+
+        '<div class="alt-info"><div class="alt-name" style="font-family:\''+r.name+'\'">'+r.name+srcTag+'</div>'+
+        '<div class="alt-meta">'+(CAT_LABELS[r.cat]||r.cat)+' · '+(r.weight==='700'?'Bold':'Regular')+'</div></div>'+
+        '<div class="alt-preview" style="font-family:\''+r.name+'\'; font-weight:'+r.weight+'">'+escapeHtml(text)+'</div>';
+      const selectThis=()=>{
+        bestScoreEl.textContent=rp+'%';
+        bestFontNameEl.textContent=r.name;
+        bestFontNameEl.style.fontFamily='"'+r.name+'"';
+        bestFontMetaEl.textContent=(r.local?'Local · ':'')+'Family: '+r.name+'  ·  Weight: '+(r.weight==='700'?'Bold':'Regular')+'  ·  Category: '+CAT_LABELS[r.cat];
+        maskToCanvas(r.norm,FW,FH,bestMaskCanvas);
+        renderAlphabet(bestAlphabetPreview,r.name,r.weight);
+        updateTryPreview(r.name,r.weight);
+        window.scrollTo({top:0,behavior:'smooth'});
+      };
+      li.addEventListener('click',selectThis);
+      li.addEventListener('keydown',e=>{ if(e.key==='Enter') selectThis(); });
+      altList.appendChild(li);
+    });
+
+    let currentFamily=top.name, currentWeight=top.weight;
+    function updateTryPreview(family,weight){
+      currentFamily=family; currentWeight=weight;
+      tryPreview.style.fontFamily='"'+family+'"';
+      tryPreview.style.fontWeight=weight;
+      tryPreview.textContent=tryTextInput.value||' ';
+    }
+    updateTryPreview(top.name,top.weight);
+    tryTextInput.oninput=()=>updateTryPreview(currentFamily,currentWeight);
+    altList.querySelectorAll('.alt-item').forEach((li,idx)=>{
+      li.addEventListener('click',()=>{
+        const r=results[idx+1];
+        updateTryPreview(r.name,r.weight);
+      });
+    });
+
+    emptyState.style.display='none';
+    resultsSection2.hidden=false;
+    setStatus('Done — '+results.length+' fonts compared'+(localFonts.length?' ('+localFonts.length+' local)':'')+'.');
+    analyzeBtn.disabled=false;
+  });
+
+  function escapeHtml(s){
+    return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+})();
+</script>
+</body>
+</html>
