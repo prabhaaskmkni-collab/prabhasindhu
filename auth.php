@@ -47,8 +47,8 @@ if (session_status() === PHP_SESSION_NONE) {
 function loadUsers(): array {
     return json_decode(file_get_contents(USERS_FILE), true) ?? [];
 }
-function saveUsers(array $users): void {
-    file_put_contents(USERS_FILE, json_encode(array_values($users), JSON_PRETTY_PRINT));
+function saveUsers(array $users): bool {
+    return file_put_contents(USERS_FILE, json_encode(array_values($users), JSON_PRETTY_PRINT)) !== false;
 }
 function nextId(): int {
     $users = loadUsers();
@@ -119,8 +119,7 @@ function db_createUser(string $username, string $password, string $role): bool {
         'role'          => $role,
         'created_at'    => date('Y-m-d H:i:s'),
     ];
-    saveUsers($users);
-    return true;
+    return saveUsers($users);
 }
 
 function db_deleteUser(int $id): void {
