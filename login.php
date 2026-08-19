@@ -126,12 +126,12 @@ $token = csrfToken();
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   html, body {
-    height: 100%;
+    min-height: 100%;
     font-family: var(--font-sans);
     background-color: var(--bg-main);
     color: var(--text-primary);
     -webkit-font-smoothing: antialiased;
-    overflow: hidden;
+    overflow-y: auto;
   }
 
   .bg-ambient {
@@ -272,6 +272,17 @@ $token = csrfToken();
   .footer-text { color: var(--text-muted); }
   .footer-link { color: var(--text-secondary); text-decoration: none; font-weight: 500; }
   .footer-link:hover { color: var(--primary); }
+  /* Showcase styles */
+  .login-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 40px;
+    max-width: 860px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 40px 20px;
+  }
 </style>
 </head>
 <body>
@@ -279,7 +290,24 @@ $token = csrfToken();
 <div class="bg-ambient"></div>
 
 <div class="viewport">
-  <div class="auth-card">
+  <div class="login-wrapper">
+    <!-- Top Branding & Intro Header -->
+    <div style="display: flex; flex-direction: column; align-items: center; text-align: center; max-width: 640px; width: 100%; gap: 16px; margin-bottom: 8px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <img src="oddinfotech_logo.jpg" alt="Odd Infotech Logo" style="width: 36px; height: 36px; border-radius: 8px; object-fit: cover; border: 1px solid rgba(255,255,255,0.15);">
+        <div style="display: flex; flex-direction: column; font-family: var(--font-sans); text-align: left;">
+          <span style="font-size: 9px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.15em; line-height: 1.1;">Service Provided By</span>
+          <span style="font-size: 14px; font-weight: 600; color: var(--text-secondary);">Odd Infotech</span>
+        </div>
+      </div>
+      <h2 style="font-size: 38px; font-weight: 800; letter-spacing: -0.025em; color: #fff; line-height: 1.2; margin: 0;">Odd Infotech powers Mockup Studio</h2>
+      <p style="font-size: 14px; line-height: 1.6; color: var(--text-secondary); margin: 0; max-width: 580px;">
+        Mockup Studio is maintained and supported by Odd Infotech, helping brands prepare digital-ready assets, improve product visuals, create brand graphics, and support online business operations.
+      </p>
+    </div>
+
+    <!-- Center Login form -->
+    <div class="auth-card">
 
     <!-- Header -->
     <div class="brand-header">
@@ -383,6 +411,68 @@ $token = csrfToken();
       <?php endif; ?>
     </div>
 
+    </div>
+    
+    <!-- Bottom Column: Video Showcase & Detailed Feature Descriptions -->
+    <div style="width: 100%; display: flex; flex-direction: column; align-items: center; gap: 40px; margin-top: 16px;">
+      
+      <!-- Video Player -->
+      <div style="width: 100%; max-width: 760px; border-radius: 16px; overflow: hidden; border: 1px solid var(--card-border); box-shadow: 0 25px 50px rgba(0,0,0,0.6); background: #000;">
+        <video src="mckup.mp4" controls autoplay loop muted style="width: 100%; display: block;"></video>
+      </div>
+
+      <!-- Feature Grid -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; width: 100%; text-align: left;">
+        
+        <!-- Feature 1: Mockup Engine -->
+        <div style="display: flex; gap: 14px; align-items: flex-start; padding: 20px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); border-radius: 12px; transition: all 0.3s ease;" onmouseover="this.style.background='rgba(255,255,255,0.04)'; this.style.borderColor='rgba(99,102,241,0.25)';" onmouseout="this.style.background='rgba(255,255,255,0.02)'; this.style.borderColor='rgba(255,255,255,0.04)';">
+          <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(99, 102, 241, 0.15); display: flex; align-items: center; justify-content: center; color: var(--primary); flex-shrink: 0;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+          </div>
+          <div>
+            <h4 style="font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 6px;">3D Mockup Engine</h4>
+            <p style="font-size: 12.5px; color: var(--text-secondary); line-height: 1.5;">Drag & drop design drafts onto realistic 3D templates like garments, mugs, and frames.</p>
+          </div>
+        </div>
+
+        <!-- Feature 2: Background Remover -->
+        <div style="display: flex; gap: 14px; align-items: flex-start; padding: 20px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); border-radius: 12px; transition: all 0.3s ease;" onmouseover="this.style.background='rgba(255,255,255,0.04)'; this.style.borderColor='rgba(99,102,241,0.25)';" onmouseout="this.style.background='rgba(255,255,255,0.02)'; this.style.borderColor='rgba(255,255,255,0.04)';">
+          <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(16, 185, 129, 0.15); display: flex; align-items: center; justify-content: center; color: var(--success); flex-shrink: 0;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3z"></path><path d="M18.5 15.5l-4.5-4.5-5 5-2-2-4 4"></path><circle cx="8.5" cy="8.5" r="1.5"></circle></svg>
+          </div>
+          <div>
+            <h4 style="font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 6px;">Background Remover</h4>
+            <p style="font-size: 12.5px; color: var(--text-secondary); line-height: 1.5;">Isolate product subjects instantly with automated edge-detection background removal.</p>
+          </div>
+        </div>
+
+        <!-- Feature 3: Font Finder -->
+        <div style="display: flex; gap: 14px; align-items: flex-start; padding: 20px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); border-radius: 12px; transition: all 0.3s ease;" onmouseover="this.style.background='rgba(255,255,255,0.04)'; this.style.borderColor='rgba(99,102,241,0.25)';" onmouseout="this.style.background='rgba(255,255,255,0.02)'; this.style.borderColor='rgba(255,255,255,0.04)';">
+          <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(245, 158, 11, 0.15); display: flex; align-items: center; justify-content: center; color: #f59e0b; flex-shrink: 0;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>
+          </div>
+          <div>
+            <h4 style="font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 6px;">Typography Font Finder</h4>
+            <p style="font-size: 12.5px; color: var(--text-secondary); line-height: 1.5;">Match font families and text parameters dynamically directly from uploaded artwork.</p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Services List Banner -->
+      <div style="width: 100%; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--card-border); border-radius: 16px; padding: 24px 32px; text-align: left;">
+        <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.15em; display: block; margin-bottom: 16px;">Odd Infotech Services</span>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px 24px;">
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-secondary);"><span style="color: var(--success); font-weight: bold;">✓</span> Embroidery digitizing</div>
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-secondary);"><span style="color: var(--success); font-weight: bold;">✓</span> Vector artwork conversion</div>
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-secondary);"><span style="color: var(--success); font-weight: bold;">✓</span> Image editing & retouching</div>
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-secondary);"><span style="color: var(--success); font-weight: bold;">✓</span> Graphic & logo design</div>
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-secondary);"><span style="color: var(--success); font-weight: bold;">✓</span> eCommerce support</div>
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-secondary);"><span style="color: var(--success); font-weight: bold;">✓</span> Live chat support</div>
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-secondary);"><span style="color: var(--success); font-weight: bold;">✓</span> AI/ML as a Service</div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 

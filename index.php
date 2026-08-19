@@ -867,12 +867,57 @@ requireAuth();
       </div>
 
       <div class="stage-main" id="stageMain">
-        <div class="empty-state" id="emptyState">
-          <div class="glyph">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+        <div class="empty-state" id="emptyState" style="max-width: 860px; width: 100%; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 40px 20px;">
+          <h1 style="font-family: var(--sans); font-size: 44px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 12px; background: linear-gradient(135deg, #fff 30%, var(--slate) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Mockup Studio</h1>
+          <p style="font-size: 16px; line-height: 1.6; color: var(--slate); max-width: 520px; margin-bottom: 28px;">
+            The ultimate design toolbox. Build realistic 3D product previews, isolate elements, and match fonts inside a single streamlined workbench.
+          </p>
+          <button class="btn btn-primary" style="width: auto; padding: 12px 32px; border-radius: 9999px; font-size: 14px; background: var(--signal); color: #fff; font-weight: 600; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4); border: none; margin-bottom: 40px; cursor: pointer; transition: all 0.2s;" onclick="const cards = document.querySelectorAll('.tpl-card'); if(cards.length > 0) cards[0].click();">
+            Get Started Now
+          </button>
+          
+          <!-- Video Showcase -->
+          <div style="width: 100%; max-width: 760px; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 25px 50px rgba(0,0,0,0.7); background: #000; margin-bottom: 48px;">
+            <video src="mckup.mp4" autoplay loop muted playsinline style="width: 100%; display: block;"></video>
           </div>
-          <h3>Nothing on the stage yet</h3>
-          <p>Pick a template on the left, then drop a design on the right. The composite renders here.</p>
+
+          <!-- Features Grid -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; width: 100%; text-align: left;">
+            
+            <!-- Feature 1: Mockup Engine -->
+            <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--line); border-radius: 12px; padding: 24px; transition: all 0.3s ease; display: flex; flex-direction: column; gap: 12px; backdrop-filter: blur(10px);" onmouseover="this.style.background='rgba(255,255,255,0.04)'; this.style.borderColor='rgba(99,102,241,0.3)';" onmouseout="this.style.background='rgba(255,255,255,0.02)'; this.style.borderColor='var(--line)';">
+              <div style="width: 40px; height: 40px; border-radius: 8px; background: rgba(99, 102, 241, 0.15); display: flex; align-items: center; justify-content: center; color: var(--signal);">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+              </div>
+              <h3 style="font-family: var(--sans); font-size: 17px; font-weight: 700; color: #fff; margin: 0;">3D Mockup Engine</h3>
+              <p style="font-size: 13px; line-height: 1.5; color: var(--slate); margin: 0;">
+                Interact with high-fidelity product templates. Drag, drop, adjust alignment, scale, rotation, and lighting to preview designs in realistic context.
+              </p>
+            </div>
+
+            <!-- Feature 2: Background Remover -->
+            <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--line); border-radius: 12px; padding: 24px; transition: all 0.3s ease; display: flex; flex-direction: column; gap: 12px; backdrop-filter: blur(10px);" onmouseover="this.style.background='rgba(255,255,255,0.04)'; this.style.borderColor='rgba(99,102,241,0.3)';" onmouseout="this.style.background='rgba(255,255,255,0.02)'; this.style.borderColor='var(--line)';">
+              <div style="width: 40px; height: 40px; border-radius: 8px; background: rgba(16, 185, 129, 0.15); display: flex; align-items: center; justify-content: center; color: #10b981;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3z"></path><path d="M18.5 15.5l-4.5-4.5-5 5-2-2-4 4"></path><circle cx="8.5" cy="8.5" r="1.5"></circle></svg>
+              </div>
+              <h3 style="font-family: var(--sans); font-size: 17px; font-weight: 700; color: #fff; margin: 0;">Background Remover</h3>
+              <p style="font-size: 13px; line-height: 1.5; color: var(--slate); margin: 0;">
+                Clean your product cutouts instantly. Use precise, automated edge-detection tools to strip backgrounds from uploaded logos and artwork.
+              </p>
+            </div>
+
+            <!-- Feature 3: Font Finder -->
+            <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--line); border-radius: 12px; padding: 24px; transition: all 0.3s ease; display: flex; flex-direction: column; gap: 12px; backdrop-filter: blur(10px);" onmouseover="this.style.background='rgba(255,255,255,0.04)'; this.style.borderColor='rgba(99,102,241,0.3)';" onmouseout="this.style.background='rgba(255,255,255,0.02)'; this.style.borderColor='var(--line)';">
+              <div style="width: 40px; height: 40px; border-radius: 8px; background: rgba(245, 158, 11, 0.15); display: flex; align-items: center; justify-content: center; color: #f59e0b;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>
+              </div>
+              <h3 style="font-family: var(--sans); font-size: 17px; font-weight: 700; color: #fff; margin: 0;">Typography Font Finder</h3>
+              <p style="font-size: 13px; line-height: 1.5; color: var(--slate); margin: 0;">
+                Identify fonts and text sizes dynamically. Detect styles in existing graphics, compare variations, and match typography with local and web fonts.
+              </p>
+            </div>
+            
+          </div>
         </div>
         <div class="canvas-frame" id="canvasFrame" style="display:none; position:relative;">
           <canvas id="stageCanvas"></canvas>
