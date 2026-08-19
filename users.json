@@ -1,32 +1,23 @@
 [
-  {
-    "id": 1,
-    "name": "uykl",
-    "email": "prabha.oddinfo@gmail.com",
-    "password_hash": "$2b$10$1DSM.DbC3AFWoQqXB0a9JO.qlqUePdyx9SQ3euUzJ5K7uR9V5UEpe",
-    "google_id": null,
-    "picture": "https://ui-avatars.com/api/?name=uykl&background=6366f1&color=fff",
-    "created_at": "2026-08-06T07:14:39.319Z",
-    "last_login": "2026-08-06T07:14:39.319Z"
-  },
-  {
-    "id": 2,
-    "name": "dghh",
-    "email": "media@oddinfotech.com",
-    "password_hash": "$2b$10$Z/RXK385Y76mwmKWl8Sb9eEo7Yx3dU8TgJZd11JYfvIDJVbsaCx4a",
-    "google_id": null,
-    "picture": "https://ui-avatars.com/api/?name=dghh&background=6366f1&color=fff",
-    "created_at": "2026-08-13T07:10:05.883Z",
-    "last_login": "2026-08-13T07:10:05.883Z"
-  },
-  {
-    "id": 3,
-    "name": "prabha",
-    "email": "sarah@oddinfotech.com",
-    "password_hash": "$2b$10$TCkLX1D9wr.1JA1Mw2c1zOEw0x/JkIiQup0Bu/V1WMVplWgpSmq9u",
-    "google_id": null,
-    "picture": "https://ui-avatars.com/api/?name=prabha&background=6366f1&color=fff",
-    "created_at": "2026-08-14T05:36:16.261Z",
-    "last_login": "2026-08-14T05:36:16.261Z"
-  }
+    {
+        "id": 1,
+        "username": "admin",
+        "password_hash": "$2y$12$5.ICNT8iFpioEA86oJTZ4eLjMxow1YnmD3aN5LZTy9NZe323BUCVa",
+        "role": "admin",
+        "created_at": "2026-08-08 07:35:02"
+    },
+    {
+        "id": 2,
+        "username": "testuser",
+        "password_hash": "$2y$12$HSvrTIN5ZvB5l6H6KuhvgeYyOmEbFdvfTwxfi3eW0cWfallXY.pU2",
+        "role": "user",
+        "created_at": "2026-08-08 07:35:02"
+    },
+    {
+        "id": 3,
+        "username": "media",
+        "password_hash": "$2y$12$WS9eDbTLVx3wxv8KE2zEOegLD5sHUEZHSZRoV0.l7vsqM3YF8k2Fe",
+        "role": "user",
+        "created_at": "2026-08-15 05:37:17"
+    }
 ]

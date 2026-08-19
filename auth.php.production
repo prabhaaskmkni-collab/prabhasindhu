@@ -1,0 +1,185 @@
+<?php
+ob_start();
+/**
+ * auth.php — Shared authentication & database helpers
+ * Include this at the top of every protected page.
+ *
+ * ─────────────────────────────────────────────────────────────
+ *  SETUP INSTRUCTIONS
+ *  1. Create a MySQL database in Hostinger hPanel.
+ *  2. Run the SQL in setup.sql (see comment block below).
+ *  3. Fill in your DB credentials in the CONFIG section.
+ *  4. Upload all PHP files to your Hostinger public_html folder.
+ * ─────────────────────────────────────────────────────────────
+ */
+
+/* ═══════════════════════════════════════════════════════════
+   CONFIG  — edit these four values to match your Hostinger DB
+   ═══════════════════════════════════════════════════════════ */
+define('DB_HOST',     'localhost');          // always localhost on Hostinger shared
+define('DB_NAME',     'YOUR_DB_NAME');       // e.g. u123456789_mockup
+define('DB_USER',     'YOUR_DB_USER');       // e.g. u123456789_admin
+define('DB_PASS',     'YOUR_DB_PASSWORD');   // your DB password
+define('SESSION_TTL', 7200);                 // session lifetime in seconds (2 hours)
+
+/* ═══════════════════════════════════════════════════════════
+   SESSION BOOTSTRAP
+   ═══════════════════════════════════════════════════════════ */
+if (session_status() === PHP_SESSION_NONE) {
+    session_set_cookie_params([
+        'lifetime' => SESSION_TTL,
+        'path'     => '/',
+        'secure'   => isset($_SERVER['HTTPS']),   // HTTPS-only cookie when on SSL
+        'httponly' => true,                        // not readable by JS
+        'samesite' => 'Lax',
+    ]);
+    session_start();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DATABASE CONNECTION (singleton)
+   ═══════════════════════════════════════════════════════════ */
+function db(): PDO {
+    static $pdo = null;
+    if ($pdo === null) {
+        try {
+            $pdo = new PDO(
+                'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4',
+                DB_USER,
+                DB_PASS,
+                [
+                    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    PDO::ATTR_EMULATE_PREPARES   => false,
+                ]
+            );
+        } catch (PDOException $e) {
+            // Don't leak DB details — show a friendly error
+            http_response_code(500);
+            die('<style>body{font-family:monospace;background:#0E0E10;color:#F5F3EE;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}</style>'
+              . '<div style="text-align:center"><h2>⚠ Database connection failed</h2>'
+              . '<p style="color:#9A9DA3">Please check DB credentials in auth.php</p></div>');
+        }
+    }
+    return $pdo;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   AUTH HELPERS
+   ═══════════════════════════════════════════════════════════ */
+
+/**
+ * Call at the top of any protected page.
+ * Redirects to login.php if the user is not authenticated.
+ */
+function requireAuth(): void {
+    // Expire idle sessions
+    if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity']) > SESSION_TTL) {
+        session_unset();
+        session_destroy();
+    }
+    if (empty($_SESSION['user_id'])) {
+        header('Location: login.php');
+        exit;
+    }
+    $_SESSION['last_activity'] = time();
+}
+
+/**
+ * Call at the top of admin-only pages.
+ */
+function requireAdmin(): void {
+    requireAuth();
+    if (($_SESSION['role'] ?? '') !== 'admin') {
+        http_response_code(403);
+        die('<style>body{font-family:monospace;background:#0E0E10;color:#F5F3EE;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}</style>'
+          . '<div style="text-align:center"><h2>403 — Forbidden</h2><p style="color:#9A9DA3">Admin access required.</p>'
+          . '<a href="index.php" style="color:#FF5A1F">← Back to app</a></div>');
+        exit;
+    }
+}
+
+/**
+ * Attempt login. Returns user array on success, null on failure.
+ */
+function attemptLogin(string $username, string $password): ?array {
+    $stmt = db()->prepare('SELECT id, username, password_hash, role FROM users WHERE username = ? LIMIT 1');
+    $stmt->execute([trim($username)]);
+    $user = $stmt->fetch();
+
+    if ($user && password_verify($password, $user['password_hash'])) {
+        // Rehash if the algorithm/cost factor was updated
+        if (password_needs_rehash($user['password_hash'], PASSWORD_BCRYPT, ['cost' => 12])) {
+            $newHash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
+            db()->prepare('UPDATE users SET password_hash = ? WHERE id = ?')
+                ->execute([$newHash, $user['id']]);
+        }
+        return $user;
+    }
+    return null;
+}
+
+/**
+ * Start a new authenticated session for a user.
+ */
+function startSession(array $user): void {
+    session_regenerate_id(true); // prevent session fixation
+    $_SESSION['user_id']       = $user['id'];
+    $_SESSION['username']      = $user['username'];
+    $_SESSION['role']          = $user['role'];
+    $_SESSION['last_activity'] = time();
+}
+
+/**
+ * Destroy the current session completely.
+ */
+function destroySession(): void {
+    session_unset();
+    session_destroy();
+    // Clear the session cookie
+    if (ini_get('session.use_cookies')) {
+        $p = session_get_cookie_params();
+        setcookie(session_name(), '', time() - 3600, $p['path'], $p['domain'], $p['secure'], $p['httponly']);
+    }
+}
+
+/**
+ * Generate a CSRF token (stored in session).
+ */
+function csrfToken(): string {
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+/**
+ * Verify a submitted CSRF token.
+ */
+function verifyCsrf(string $token): bool {
+    return hash_equals($_SESSION['csrf_token'] ?? '', $token);
+}
+
+/*
+ * ─────────────────────────────────────────────────────────────
+ *  FIRST-TIME SETUP SQL
+ *  Run this in Hostinger hPanel → phpMyAdmin
+ * ─────────────────────────────────────────────────────────────
+ *
+ * CREATE TABLE IF NOT EXISTS users (
+ *   id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ *   username      VARCHAR(50) UNIQUE NOT NULL,
+ *   password_hash VARCHAR(255) NOT NULL,
+ *   role          ENUM('user','admin') NOT NULL DEFAULT 'user',
+ *   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+ * ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+ *
+ * -- Default admin account  (password: Admin@1234  — CHANGE THIS IMMEDIATELY)
+ * INSERT INTO users (username, password_hash, role) VALUES (
+ *   'admin',
+ *   '$2y$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
+ *   'admin'
+ * );
+ *
+ * ─────────────────────────────────────────────────────────────
+ */
